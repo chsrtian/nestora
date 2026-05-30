@@ -38,6 +38,16 @@ type Property = {
   property_amenities?: PropertyAmenity[] | null;
 };
 
+type EmbeddedOne<T> = T | T[] | null;
+
+type PropertyAmenityRow = Omit<PropertyAmenity, "amenities"> & {
+  amenities: EmbeddedOne<PropertyAmenity["amenities"]>;
+};
+
+type PropertyRow = Omit<Property, "property_amenities"> & {
+  property_amenities?: PropertyAmenityRow[] | null;
+};
+
 type Inquiry = {
   id: string;
   property_id: string;
@@ -83,6 +93,24 @@ const groupByPropertyId = <T extends { property_id: string }>(items: T[]) => {
     return acc;
   }, {});
 };
+
+function normalizeEmbeddedOne<T>(value: EmbeddedOne<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value;
+}
+
+function normalizeProperties(rows: PropertyRow[]): Property[] {
+  return rows.map((property) => ({
+    ...property,
+    property_amenities: property.property_amenities?.map((amenity) => ({
+      ...amenity,
+      amenities: normalizeEmbeddedOne(amenity.amenities),
+    })) ?? null,
+  }));
+}
 
 export default function RenterDashboardPage() {
   const router = useRouter();
@@ -166,7 +194,7 @@ export default function RenterDashboardPage() {
       return [];
     }
 
-    const nextProperties = (data ?? []) as Property[];
+    const nextProperties = normalizeProperties((data ?? []) as PropertyRow[]);
     setProperties(nextProperties);
     setSearchLoading(false);
     return nextProperties;
@@ -412,10 +440,12 @@ export default function RenterDashboardPage() {
     }
 
     const propertyCheck = await verifyApprovedProperty(client, property.id);
-    if (propertyCheck.error) {
+    if ("error" in propertyCheck) {
+      const checkError =
+        propertyCheck.error ?? "Unable to verify property availability.";
       setInquiryErrors((prev) => ({
         ...prev,
-        [property.id]: propertyCheck.error,
+        [property.id]: checkError,
       }));
       setInquirySuccess((prev) => ({ ...prev, [property.id]: "" }));
       return;
@@ -501,10 +531,12 @@ export default function RenterDashboardPage() {
     }
 
     const propertyCheck = await verifyApprovedProperty(client, property.id);
-    if (propertyCheck.error) {
+    if ("error" in propertyCheck) {
+      const checkError =
+        propertyCheck.error ?? "Unable to verify property availability.";
       setReviewErrors((prev) => ({
         ...prev,
-        [property.id]: propertyCheck.error,
+        [property.id]: checkError,
       }));
       setReviewSuccess((prev) => ({ ...prev, [property.id]: "" }));
       return;

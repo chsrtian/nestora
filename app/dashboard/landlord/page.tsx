@@ -43,6 +43,24 @@ type VerificationRequest = {
   reviewed_at: string | null;
 };
 
+type EmbeddedOne<T> = T | T[] | null;
+
+type InquiryRow = Omit<Inquiry, "properties"> & {
+  properties: EmbeddedOne<Inquiry["properties"]>;
+};
+
+type ReviewRow = Omit<Review, "properties"> & {
+  properties: EmbeddedOne<Review["properties"]>;
+};
+
+function normalizeEmbeddedOne<T>(value: EmbeddedOne<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value;
+}
+
 export default function LandlordDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -117,9 +135,9 @@ export default function LandlordDashboardPage() {
     setVerificationSubmitting(true);
     setVerificationSubmitError(null);
 
-    const { error: insertError } = await client
-      .from("verification_requests")
-      .insert({ landlord_id: landlordId });
+    const { error: insertError } = await client.rpc(
+      "submit_landlord_verification_request",
+    );
 
     if (insertError) {
       setVerificationSubmitError(insertError.message);
@@ -128,6 +146,7 @@ export default function LandlordDashboardPage() {
     }
 
     await loadVerificationRequests(client, landlordId);
+    setVerificationStatus("pending");
     setVerificationSubmitting(false);
   };
 
@@ -223,8 +242,21 @@ export default function LandlordDashboardPage() {
       await loadVerificationRequests(client, sessionData.session.user.id);
 
       setProperties(propertiesData ?? []);
-      setInquiries((inquiriesData ?? []) as Inquiry[]);
-      setReviews((reviewsData ?? []) as Review[]);
+      const normalizedInquiries = ((inquiriesData ?? []) as InquiryRow[]).map(
+        (inquiry) => ({
+          ...inquiry,
+          properties: normalizeEmbeddedOne(inquiry.properties),
+        }),
+      );
+      const normalizedReviews = ((reviewsData ?? []) as ReviewRow[]).map(
+        (review) => ({
+          ...review,
+          properties: normalizeEmbeddedOne(review.properties),
+        }),
+      );
+
+      setInquiries(normalizedInquiries);
+      setReviews(normalizedReviews);
       setLoading(false);
     };
 

@@ -35,6 +35,16 @@ type Property = {
   property_amenities?: PropertyAmenity[] | null;
 };
 
+type EmbeddedOne<T> = T | T[] | null;
+
+type PropertyAmenityRow = Omit<PropertyAmenity, "amenities"> & {
+  amenities: EmbeddedOne<PropertyAmenity["amenities"]>;
+};
+
+type PropertyRow = Omit<Property, "property_amenities"> & {
+  property_amenities?: PropertyAmenityRow[] | null;
+};
+
 type Preferences = {
   city: string;
   propertyType: string;
@@ -217,6 +227,24 @@ const scoreProperty = (
     missing,
   };
 };
+
+function normalizeEmbeddedOne<T>(value: EmbeddedOne<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value;
+}
+
+function normalizeProperties(rows: PropertyRow[]): Property[] {
+  return rows.map((property) => ({
+    ...property,
+    property_amenities: property.property_amenities?.map((amenity) => ({
+      ...amenity,
+      amenities: normalizeEmbeddedOne(amenity.amenities),
+    })) ?? null,
+  }));
+}
 
 const parseBudget = (message: string) => {
   const result: { min?: number; max?: number } = {};
@@ -470,7 +498,7 @@ export default function RenterAssistantPage() {
       return [] as Property[];
     }
 
-    return (data ?? []) as Property[];
+    return normalizeProperties((data ?? []) as PropertyRow[]);
   };
 
   const logRecommendations = async (items: Recommendation[]) => {

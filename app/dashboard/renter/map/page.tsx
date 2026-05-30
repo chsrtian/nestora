@@ -1,27 +1,46 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import type {
+  MapContainerProps,
+  MarkerProps,
+  PopupProps,
+  TileLayerProps,
+} from "react-leaflet";
 import LogoutButton from "@/app/components/logout-button";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
 
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.MapContainer),
+const MapContainer = dynamic<MapContainerProps>(
+  () =>
+    import("react-leaflet").then(
+      (mod) => mod.MapContainer as unknown as ComponentType<MapContainerProps>,
+    ),
   { ssr: false },
 );
-const TileLayer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.TileLayer),
+const TileLayer = dynamic<TileLayerProps>(
+  () =>
+    import("react-leaflet").then(
+      (mod) => mod.TileLayer as unknown as ComponentType<TileLayerProps>,
+    ),
   { ssr: false },
 );
-const Marker = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Marker),
+const Marker = dynamic<MarkerProps>(
+  () =>
+    import("react-leaflet").then(
+      (mod) => mod.Marker as unknown as ComponentType<MarkerProps>,
+    ),
   { ssr: false },
 );
-const Popup = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Popup),
+const Popup = dynamic<PopupProps>(
+  () =>
+    import("react-leaflet").then(
+      (mod) => mod.Popup as unknown as ComponentType<PopupProps>,
+    ),
   { ssr: false },
 );
 

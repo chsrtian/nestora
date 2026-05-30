@@ -28,6 +28,20 @@ type VerificationRequest = {
   profiles: { full_name: string | null; verification_status: string | null } | null;
 };
 
+type EmbeddedOne<T> = T | T[] | null;
+
+type VerificationRequestRow = Omit<VerificationRequest, "profiles"> & {
+  profiles: EmbeddedOne<VerificationRequest["profiles"]>;
+};
+
+function normalizeEmbeddedOne<T>(value: EmbeddedOne<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value;
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -36,7 +50,6 @@ export default function AdminDashboardPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
-  const [adminId, setAdminId] = useState<string | null>(null);
   const [pendingProperties, setPendingProperties] = useState<PendingProperty[]>([]);
   const [pendingRequests, setPendingRequests] = useState<VerificationRequest[]>([]);
   const [propertyActionLoading, setPropertyActionLoading] = useState<
@@ -76,7 +89,13 @@ export default function AdminDashboardPage() {
       setListError((prev) => prev ?? requestsResult.error?.message ?? null);
       setPendingRequests([]);
     } else {
-      setPendingRequests((requestsResult.data ?? []) as VerificationRequest[]);
+      const requests = ((requestsResult.data ?? []) as VerificationRequestRow[]).map(
+        (request) => ({
+          ...request,
+          profiles: normalizeEmbeddedOne(request.profiles),
+        }),
+      );
+      setPendingRequests(requests);
     }
 
     setDataLoading(false);
@@ -95,10 +114,10 @@ export default function AdminDashboardPage() {
     setActionError(null);
     setPropertyActionLoading((prev) => ({ ...prev, [propertyId]: true }));
 
-    const { error: updateError } = await client
-      .from("properties")
-      .update({ status })
-      .eq("id", propertyId);
+    const { error: updateError } = await client.rpc("review_property_listing", {
+      property_id: propertyId,
+      decision: status,
+    });
 
     if (updateError) {
       setActionError(updateError.message);
@@ -120,38 +139,22 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    if (!adminId) {
-      setActionError("Admin session is missing.");
-      return;
-    }
-
     setActionError(null);
     setRequestActionLoading((prev) => ({ ...prev, [request.id]: true }));
 
-    const { error: requestError } = await client
-      .from("verification_requests")
-      .update({
-        status,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: adminId,
-      })
-      .eq("id", request.id);
+    const { error: requestError } = await client.rpc(
+      "review_landlord_verification_request",
+      {
+        request_id: request.id,
+        decision: status,
+        admin_notes: null,
+      },
+    );
 
     if (requestError) {
       setActionError(requestError.message);
       setRequestActionLoading((prev) => ({ ...prev, [request.id]: false }));
       return;
-    }
-
-    const { error: profileError } = await client
-      .from("profiles")
-      .update({ verification_status: status })
-      .eq("id", request.landlord_id);
-
-    if (profileError) {
-      setActionError(
-        `Verification request updated, but profile update failed: ${profileError.message}`,
-      );
     }
 
     await loadAdminData(client);
@@ -187,7 +190,6 @@ export default function AdminDashboardPage() {
 
       setAuthCookie();
       setEmail(sessionData.session.user.email ?? null);
-      setAdminId(sessionData.session.user.id);
 
       const { profile, error: profileError } = await ensureProfile(
         client,
