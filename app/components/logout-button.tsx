@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { clearAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
+import { Button } from "./ui/button";
+import { AlertMessage } from "./ui/alert-message";
 
 export default function LogoutButton() {
   const router = useRouter();
@@ -33,11 +36,12 @@ export default function LogoutButton() {
   };
 
   return (
-    <div>
-      <button type="button" onClick={onLogout} disabled={submitting}>
+    <div className="space-y-2">
+      <Button type="button" onClick={onLogout} disabled={submitting} variant="secondary" className="w-full">
+        <LogOut className="h-4 w-4" aria-hidden="true" />
         {submitting ? "Signing out..." : "Sign out"}
-      </button>
-      {error ? <p role="alert">{error}</p> : null}
+      </Button>
+      {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
     </div>
   );
 }

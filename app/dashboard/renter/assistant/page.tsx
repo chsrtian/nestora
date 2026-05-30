@@ -2,7 +2,32 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Bath,
+  BedDouble,
+  Bot,
+  CheckCircle2,
+  Home,
+  Loader2,
+  Map,
+  MapPin,
+  MessageSquare,
+  Send,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
+import { AppShell } from "@/app/components/layout/app-shell";
+import type { SidebarNavItem } from "@/app/components/layout/sidebar-nav";
+import { PageHeader } from "@/app/components/layout/page-header";
 import LogoutButton from "@/app/components/logout-button";
+import { AlertMessage } from "@/app/components/ui/alert-message";
+import { Badge } from "@/app/components/ui/badge";
+import { Button } from "@/app/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { EmptyState } from "@/app/components/ui/empty-state";
+import { Skeleton } from "@/app/components/ui/skeleton";
+import { Textarea } from "@/app/components/ui/textarea";
+import { cn } from "@/app/components/ui/utils";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
@@ -75,6 +100,28 @@ const DEFAULT_PREFERENCES: Preferences = {
   amenityIds: [],
 };
 
+const renterNavItems: SidebarNavItem[] = [
+  { href: "/dashboard/renter", label: "Browse rentals", icon: Home },
+  { href: "/dashboard/renter/map", label: "Map", icon: Map },
+  {
+    href: "/dashboard/renter/recommendations",
+    label: "Recommendations",
+    icon: Sparkles,
+  },
+  {
+    href: "/dashboard/renter/assistant",
+    label: "AI Assistant",
+    icon: Bot,
+    badge: "Premium",
+  },
+];
+
+const EXAMPLE_PROMPTS = [
+  "Apartment in Cabadbaran under 5000 with WiFi",
+  "Boarding house with parking below 4000",
+  "Studio near the city center with aircon",
+];
+
 const BUDGET_POINTS = 35;
 const AMENITY_POINTS = 25;
 const TYPE_POINTS = 20;
@@ -92,6 +139,22 @@ const PROPERTY_TYPE_KEYWORDS = [
 
 const normalize = (value: string | null | undefined) =>
   (value ?? "").trim().toLowerCase();
+
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatLocation(property: Property) {
+  return [property.city, property.state, property.country].filter(Boolean).join(", ");
+}
+
+function formatDate(value: string | null) {
+  return value ? new Date(value).toLocaleDateString() : "Not specified";
+}
 
 const parseNumber = (value: string) => {
   if (!value.trim()) return null;
@@ -475,6 +538,8 @@ export default function RenterAssistantPage() {
     [lastAmenityNames],
   );
 
+  const topScore = recommendations[0]?.scorePercent ?? null;
+
   const addMessage = (message: ChatMessage) => {
     setMessages((prev) => [...prev, message]);
   };
@@ -602,129 +667,397 @@ export default function RenterAssistantPage() {
 
   if (loading) {
     return (
-      <main>
-        <p>Loading rental assistant...</p>
-      </main>
+      <AppShell navItems={renterNavItems} title="Rental Marketplace">
+        <div className="mx-auto max-w-7xl space-y-6">
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-72" />
+            <Skeleton className="h-5 w-[34rem] max-w-full" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+          </div>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <Skeleton className="h-[620px] w-full" />
+            <Skeleton className="h-[620px] w-full" />
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <main>
-      <h1>Renter Assistant</h1>
-      {error ? <p role="alert">{error}</p> : null}
-      <p>Signed in as: {email ?? "Unknown"}</p>
-      <p>Role: renter</p>
+    <AppShell
+      navItems={renterNavItems}
+      title="Rental Marketplace"
+      topNavAction={email ? <Badge>{email}</Badge> : null}
+      sidebarFooter={<LogoutButton />}
+      className="pb-6"
+    >
+      <div className="mx-auto max-w-7xl space-y-5">
+        <PageHeader
+          eyebrow="Premium discovery assistant"
+          title="Describe the rental you want"
+          description="The assistant reads your message, extracts known rental signals, and ranks approved properties with the existing rule-based matcher."
+          actions={
+            <Badge variant="premium" className="px-3 py-1">
+              Rule-based assistant
+            </Badge>
+          }
+        />
 
-      <section aria-label="Assistant chat">
-        <h2>Assistant chat</h2>
-        <div aria-live="polite">
-          {messages.map((message) => (
-            <article key={message.id}>
-              <strong>{message.role === "assistant" ? "Assistant" : "You"}</strong>
-              <p>{message.content}</p>
-            </article>
-          ))}
-        </div>
-        {assistantError ? <p role="alert">{assistantError}</p> : null}
-        {isThinking ? <p>Assistant is thinking...</p> : null}
-        <form onSubmit={onSend}>
-          <label>
-            Your message
-            <input
-              type="text"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder="e.g. apartment in Cabadbaran under 5000 with WiFi"
-            />
-          </label>
-          <button type="submit" disabled={isThinking}>
-            {isThinking ? "Sending..." : "Send"}
-          </button>
-        </form>
-      </section>
+        {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
 
-      <section aria-label="Parsed preferences">
-        <h2>Parsed preferences</h2>
-        {lastNotes.length === 0 ? (
-          <p>No parsed preferences yet.</p>
-        ) : (
-          <ul>
-            {lastNotes.map((note) => (
-              <li key={note}>{note}</li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-label="Assistant recommendations">
-        <h2>Top matches</h2>
-        {isThinking ? (
-          <p>Preparing recommendations...</p>
-        ) : recommendations.length === 0 ? (
-          <p>
-            {hasResults
-              ? "No approved properties matched your request yet."
-              : "No recommendations yet. Send a message to get started."}
-          </p>
-        ) : (
-          <div>
-            {recommendations.map((item) => {
-              const { property, reasons, missing, scorePercent } = item;
-              const amenityNamesForProperty = (property.property_amenities ?? [])
-                .map((amenity) => amenity.amenities?.name)
-                .filter((name): name is string => Boolean(name));
-
-              return (
-                <article key={property.id}>
-                  <h3>{property.title}</h3>
-                  <p>Match score: {scorePercent}%</p>
-                  <p>
-                    Location: {property.city || ""}
-                    {property.state ? `, ${property.state}` : ""}
-                    {property.country ? `, ${property.country}` : ""}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-neutral-200 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle>Discovery chat</CardTitle>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">
+                    Use natural phrasing; no external AI services are called.
                   </p>
-                  <p>Type: {property.property_type || "Not specified"}</p>
-                  <p>Price: {property.price}</p>
-                  <p>Deposit: {property.deposit}</p>
-                  <p>Advance: {property.advance}</p>
-                  <p>Bedrooms: {property.bedrooms}</p>
-                  <p>Bathrooms: {property.bathrooms}</p>
-                  <p>Area (sqm): {property.area_sqm}</p>
-                  <p>
-                    Available from:{" "}
-                    {property.available_from
-                      ? new Date(property.available_from).toLocaleDateString()
-                      : "Not specified"}
-                  </p>
-                  {amenityNamesForProperty.length > 0 ? (
-                    <p>Amenities: {amenityNamesForProperty.join(", ")}</p>
+                </div>
+                <Badge variant="info">Local rules</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div
+                aria-live="polite"
+                className="min-h-[420px] max-h-[560px] space-y-4 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4"
+              >
+                {messages.map((message) => {
+                  const isAssistant = message.role === "assistant";
+
+                  return (
+                    <article
+                      key={message.id}
+                      className={cn(
+                        "flex gap-3",
+                        isAssistant ? "justify-start" : "justify-end",
+                      )}
+                    >
+                      {isAssistant ? (
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-neutral-950 text-white">
+                          <Bot className="h-4 w-4" aria-hidden="true" />
+                        </div>
+                      ) : null}
+                      <div
+                        className={cn(
+                          "max-w-[82%] rounded-lg border px-4 py-3 text-sm leading-6",
+                          isAssistant
+                            ? "border-neutral-200 bg-white text-neutral-700"
+                            : "border-neutral-950 bg-neutral-950 text-white",
+                        )}
+                      >
+                        <p className="mb-1 text-xs font-medium uppercase opacity-60">
+                          {isAssistant ? "Assistant" : "You"}
+                        </p>
+                        <p>{message.content}</p>
+                      </div>
+                    </article>
+                  );
+                })}
+                {isThinking ? (
+                  <div className="flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-500">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    Matching approved rentals...
+                  </div>
+                ) : null}
+              </div>
+
+              {assistantError ? (
+                <AlertMessage variant="danger">{assistantError}</AlertMessage>
+              ) : null}
+
+              <div className="rounded-lg border border-neutral-200 bg-white p-4">
+                <p className="text-sm font-medium text-neutral-950">
+                  Prompt suggestions
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {EXAMPLE_PROMPTS.map((prompt) => (
+                    <Button
+                      key={prompt}
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setInput(prompt)}
+                      disabled={isThinking}
+                      className="h-auto max-w-full justify-start whitespace-normal py-2 text-left leading-5"
+                    >
+                      <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                      {prompt}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <form onSubmit={onSend} className="space-y-3">
+                <label
+                  htmlFor="assistant-message"
+                  className="text-sm font-medium text-neutral-950"
+                >
+                  Your rental brief
+                </label>
+                <Textarea
+                  id="assistant-message"
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  placeholder="e.g. apartment in Cabadbaran under 5000 with WiFi"
+                  rows={4}
+                />
+                <Button type="submit" disabled={isThinking} className="w-full">
+                  {isThinking ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <p>Amenities: Not specified</p>
+                    <Send className="h-4 w-4" aria-hidden="true" />
                   )}
-                  {reasons.length > 0 ? (
-                    <p>Matched: {reasons.join("; ")}</p>
-                  ) : null}
-                  {missing.length > 0 ? (
-                    <p>Missing: {missing.join("; ")}</p>
-                  ) : null}
-                </article>
-              );
-            })}
+                  {isThinking ? "Matching..." : "Find matches"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+            <Card>
+              <CardHeader className="p-4 pb-0">
+                <CardTitle>Parsed preferences</CardTitle>
+                <p className="text-sm leading-6 text-neutral-500">
+                  Signals detected by the current rule parser.
+                </p>
+              </CardHeader>
+              <CardContent className="p-4">
+                {lastNotes.length === 0 ? (
+                  <EmptyState
+                    title="No preferences parsed yet"
+                    description="Send a message with a city, budget, property type, or amenity."
+                    icon={<Wand2 className="h-5 w-5" aria-hidden="true" />}
+                    className="p-6"
+                  />
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {lastNotes.map((note) => (
+                      <Badge key={note} variant="premium">
+                        {note}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="p-4 pb-0">
+                <CardTitle>Detected amenities</CardTitle>
+                <p className="text-sm leading-6 text-neutral-500">
+                  Matched against the marketplace amenities list.
+                </p>
+              </CardHeader>
+              <CardContent className="p-4">
+                <p className="text-sm leading-6 text-neutral-600">
+                  {amenityNamesLabel}
+                </p>
+              </CardContent>
+            </Card>
           </div>
-        )}
-      </section>
+        </div>
 
-      <section aria-label="Summary">
-        <h2>Summary</h2>
-        <p>Detected amenities: {amenityNamesLabel}</p>
-      </section>
+        <section aria-label="Assistant recommendations" className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-neutral-950">
+                Assistant picks
+              </h2>
+              <p className="text-sm leading-6 text-neutral-500">
+                Top approved rentals returned by the existing matching logic.
+              </p>
+            </div>
+            <Badge variant="success">Approved only</Badge>
+          </div>
 
-      <p>
-        Testing note: Until admin approval is implemented, manually approve a
-        property in Supabase using{` update properties set status = 'approved' where id = '';`}.
-      </p>
+          {isThinking ? (
+            <div className="grid gap-5 lg:grid-cols-2">
+              <Skeleton className="h-56 w-full" />
+              <Skeleton className="h-56 w-full" />
+            </div>
+          ) : recommendations.length === 0 ? (
+            <EmptyState
+              title={
+                hasResults
+                  ? "No approved rentals matched that request"
+                  : "Assistant matches will appear here"
+              }
+              description={
+                hasResults
+                  ? "Try a broader city, a higher budget, or fewer amenity requirements."
+                  : "Send a rental brief to receive up to five ranked matches."
+              }
+              icon={<Bot className="h-5 w-5" aria-hidden="true" />}
+            />
+          ) : (
+            <div className="grid gap-5 xl:grid-cols-2">
+              {recommendations.map((item, index) => {
+                const { property, reasons, missing, scorePercent } = item;
+                const amenityNamesForProperty = (property.property_amenities ?? [])
+                  .map((amenity) => amenity.amenities?.name)
+                  .filter((name): name is string => Boolean(name));
 
-      <LogoutButton />
-    </main>
+                return (
+                  <article
+                    key={property.id}
+                    className="rounded-lg border border-neutral-200 bg-white p-5"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium uppercase text-neutral-400">
+                          Assistant pick #{index + 1}
+                        </p>
+                        <h3 className="mt-1 text-lg font-semibold tracking-tight text-neutral-950">
+                          {property.title}
+                        </h3>
+                        <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-500">
+                          <MapPin className="h-4 w-4" aria-hidden="true" />
+                          <span>{formatLocation(property) || "Location unavailable"}</span>
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-center">
+                        <p className="text-lg font-semibold text-neutral-950">
+                          {scorePercent}%
+                        </p>
+                        <p className="text-xs text-neutral-500">match</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                        <p className="text-xs font-medium uppercase text-neutral-400">
+                          Price
+                        </p>
+                        <p className="mt-1 font-semibold text-neutral-950">
+                          {formatPrice(property.price)}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                        <p className="text-xs font-medium uppercase text-neutral-400">
+                          Type
+                        </p>
+                        <p className="mt-1 font-medium text-neutral-800">
+                          {property.property_type || "Not specified"}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                        <p className="flex items-center gap-1.5 text-xs font-medium uppercase text-neutral-400">
+                          <BedDouble className="h-3.5 w-3.5" aria-hidden="true" />
+                          Beds
+                        </p>
+                        <p className="mt-1 font-medium text-neutral-800">
+                          {property.bedrooms}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                        <p className="flex items-center gap-1.5 text-xs font-medium uppercase text-neutral-400">
+                          <Bath className="h-3.5 w-3.5" aria-hidden="true" />
+                          Baths
+                        </p>
+                        <p className="mt-1 font-medium text-neutral-800">
+                          {property.bathrooms}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 text-sm lg:grid-cols-2">
+                      <div>
+                        <p className="font-medium text-neutral-950">Details</p>
+                        <p className="mt-1 leading-6 text-neutral-600">
+                          Deposit {property.deposit} / Advance {property.advance}
+                        </p>
+                        <p className="leading-6 text-neutral-600">
+                          {property.area_sqm} sqm / Available{" "}
+                          {formatDate(property.available_from)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-neutral-950">Amenities</p>
+                        <p className="mt-1 leading-6 text-neutral-600">
+                          {amenityNamesForProperty.join(", ") || "Not specified"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 border-t border-neutral-100 pt-5 lg:grid-cols-2">
+                      <div>
+                        <p className="text-sm font-medium text-neutral-950">
+                          Matched
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {reasons.map((reason) => (
+                            <Badge key={reason} variant="success">
+                              {reason}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-neutral-950">
+                          Tradeoffs
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {missing.length > 0 ? (
+                            missing.map((itemMissing) => (
+                              <Badge key={itemMissing} variant="warning">
+                                {itemMissing}
+                              </Badge>
+                            ))
+                          ) : (
+                            <Badge variant="success">No major gaps</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section aria-label="Assistant signals" className="grid gap-3 md:grid-cols-3">
+          {[
+            {
+              label: "Signals",
+              value: lastNotes.length,
+              icon: <Wand2 className="h-4 w-4" aria-hidden="true" />,
+            },
+            {
+              label: "Matches",
+              value: recommendations.length,
+              icon: <Sparkles className="h-4 w-4" aria-hidden="true" />,
+            },
+            {
+              label: "Best score",
+              value: topScore === null ? "N/A" : `${topScore}%`,
+              icon: <CheckCircle2 className="h-4 w-4" aria-hidden="true" />,
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3"
+            >
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-neutral-600">
+                {stat.icon}
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-neutral-400">
+                  {stat.label}
+                </p>
+                <p className="text-lg font-semibold tracking-tight text-neutral-950">
+                  {stat.value}
+                </p>
+              </div>
+            </div>
+          ))}
+        </section>
+      </div>
+    </AppShell>
   );
 }

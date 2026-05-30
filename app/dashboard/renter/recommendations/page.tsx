@@ -2,7 +2,37 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Bath,
+  BedDouble,
+  Bot,
+  Building2,
+  Check,
+  Crosshair,
+  Home,
+  Loader2,
+  Map,
+  MapPin,
+  RotateCcw,
+  Search,
+  Sparkles,
+  Star,
+  Target,
+} from "lucide-react";
+import { AppShell } from "@/app/components/layout/app-shell";
+import type { SidebarNavItem } from "@/app/components/layout/sidebar-nav";
+import { PageHeader } from "@/app/components/layout/page-header";
 import LogoutButton from "@/app/components/logout-button";
+import { AlertMessage } from "@/app/components/ui/alert-message";
+import { Badge } from "@/app/components/ui/badge";
+import { Button } from "@/app/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { EmptyState } from "@/app/components/ui/empty-state";
+import { FilterPanel } from "@/app/components/ui/filter-panel";
+import { FormField } from "@/app/components/ui/form-field";
+import { Input } from "@/app/components/ui/input";
+import { Skeleton } from "@/app/components/ui/skeleton";
+import { cn } from "@/app/components/ui/utils";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
@@ -77,6 +107,22 @@ const DEFAULT_PREFERENCES: Preferences = {
   maxDistanceKm: "",
 };
 
+const renterNavItems: SidebarNavItem[] = [
+  { href: "/dashboard/renter", label: "Browse rentals", icon: Home },
+  { href: "/dashboard/renter/map", label: "Map", icon: Map },
+  {
+    href: "/dashboard/renter/recommendations",
+    label: "Recommendations",
+    icon: Sparkles,
+  },
+  {
+    href: "/dashboard/renter/assistant",
+    label: "AI Assistant",
+    icon: Bot,
+    badge: "Premium",
+  },
+];
+
 const BUDGET_POINTS = 35;
 const AMENITY_POINTS = 25;
 const TYPE_POINTS = 20;
@@ -93,6 +139,22 @@ const parseNumber = (value: string) => {
 };
 
 const toRadians = (value: number) => (value * Math.PI) / 180;
+
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatLocation(property: Property) {
+  return [property.city, property.state, property.country].filter(Boolean).join(", ");
+}
+
+function formatDate(value: string | null) {
+  return value ? new Date(value).toLocaleDateString() : "Not specified";
+}
 
 const haversineKm = (
   lat1: number,
@@ -343,6 +405,22 @@ export default function RenterRecommendationsPage() {
       .map((amenity) => amenity.name);
   }, [amenities, preferences.amenityIds]);
 
+  const activePreferenceCount = useMemo(() => {
+    const textPreferences = [
+      preferences.city,
+      preferences.propertyType,
+      preferences.minBudget,
+      preferences.maxBudget,
+      preferences.preferredLat,
+      preferences.preferredLng,
+      preferences.maxDistanceKm,
+    ].filter((value) => value.trim()).length;
+
+    return textPreferences + (preferences.amenityIds.length > 0 ? 1 : 0);
+  }, [preferences]);
+
+  const topScore = recommendations[0]?.scorePercent ?? null;
+
   const onPreferenceChange = (key: keyof Preferences, value: string) => {
     setPreferences((prev) => ({ ...prev, [key]: value }));
   };
@@ -470,208 +548,444 @@ export default function RenterRecommendationsPage() {
 
   if (loading) {
     return (
-      <main>
-        <p>Loading recommendations...</p>
-      </main>
+      <AppShell navItems={renterNavItems} title="Rental Marketplace">
+        <div className="mx-auto max-w-7xl space-y-6">
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-72" />
+            <Skeleton className="h-5 w-[34rem] max-w-full" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+          </div>
+          <Card>
+            <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Skeleton className="h-56 w-full" />
+            <Skeleton className="h-56 w-full" />
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <main>
-      <h1>Renter Recommendations</h1>
-      {error ? <p role="alert">{error}</p> : null}
-      <p>Signed in as: {email ?? "Unknown"}</p>
-      <p>Role: renter</p>
+    <AppShell
+      navItems={renterNavItems}
+      title="Rental Marketplace"
+      topNavAction={email ? <Badge>{email}</Badge> : null}
+      sidebarFooter={<LogoutButton />}
+      className="pb-10"
+    >
+      <div className="mx-auto max-w-7xl space-y-6">
+        <PageHeader
+          eyebrow="Smart ranked matching"
+          title="Find your strongest rental matches"
+          description="Set your budget, location, property type, and amenities to rank approved rentals by fit."
+          actions={
+            <Badge variant="premium" className="px-3 py-1">
+              Rule-based scoring
+            </Badge>
+          }
+        />
 
-      <section aria-label="Recommendation form">
-        <h2>Your preferences</h2>
-        <form onSubmit={onRecommend}>
-          <label>
-            Preferred city
-            <input
-              type="text"
-              value={preferences.city}
-              onChange={(event) => onPreferenceChange("city", event.target.value)}
-            />
-          </label>
-          <label>
-            Preferred property type
-            <input
-              type="text"
-              value={preferences.propertyType}
-              onChange={(event) =>
-                onPreferenceChange("propertyType", event.target.value)
-              }
-            />
-          </label>
-          <label>
-            Minimum budget
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={preferences.minBudget}
-              onChange={(event) =>
-                onPreferenceChange("minBudget", event.target.value)
-              }
-            />
-          </label>
-          <label>
-            Maximum budget
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={preferences.maxBudget}
-              onChange={(event) =>
-                onPreferenceChange("maxBudget", event.target.value)
-              }
-            />
-          </label>
+        {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
+        {locationError ? (
+          <AlertMessage variant="warning">{locationError}</AlertMessage>
+        ) : null}
 
-          <fieldset>
-            <legend>Selected amenities</legend>
-            {amenities.length === 0 ? (
-              <p>No amenities available.</p>
-            ) : (
-              amenities.map((amenity) => (
-                <label key={amenity.id} style={{ display: "block" }}>
-                  <input
-                    type="checkbox"
-                    checked={preferences.amenityIds.includes(amenity.id)}
-                    onChange={() => toggleAmenity(amenity.id)}
-                  />
-                  {amenity.name}
-                </label>
-              ))
-            )}
-          </fieldset>
+        <section aria-label="Recommendation results" className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-neutral-950">
+                Top matches
+              </h2>
+              <p className="text-sm leading-6 text-neutral-500">
+                Ranked approved rentals based on your current preferences.
+              </p>
+            </div>
+            <Badge variant="success">Approved only</Badge>
+          </div>
 
-          <fieldset>
-            <legend>Optional location preference</legend>
-            <label>
-              Preferred latitude
-              <input
-                type="number"
-                step="any"
-                value={preferences.preferredLat}
-                onChange={(event) =>
-                  onPreferenceChange("preferredLat", event.target.value)
-                }
+          {recommendationError ? (
+            <AlertMessage variant="danger">{recommendationError}</AlertMessage>
+          ) : null}
+
+          {isGenerating ? (
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Skeleton className="h-72 w-full" />
+              <Skeleton className="h-72 w-full" />
+              <Skeleton className="h-72 w-full" />
+            </div>
+          ) : recommendations.length === 0 ? (
+            <EmptyState
+              title={
+                hasSearched
+                  ? "No approved rentals matched your preferences"
+                  : "Top rentals will appear here"
+              }
+              description={
+                hasSearched
+                  ? "Try widening the budget, removing an amenity, or using a broader location."
+                  : "Set a few preferences below to generate a ranked marketplace view."
+              }
+              icon={<Sparkles className="h-5 w-5" aria-hidden="true" />}
+              className="py-10"
+            />
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-3">
+              {recommendations.map((item, index) => {
+                const { property, reasons, missing, scorePercent } = item;
+                const amenityNames = (property.property_amenities ?? [])
+                  .map((amenity) => amenity.amenities?.name)
+                  .filter((name): name is string => Boolean(name));
+
+                return (
+                  <article
+                    key={property.id}
+                    className="overflow-hidden rounded-lg border border-neutral-200 bg-white transition-colors hover:border-neutral-300"
+                  >
+                    <div className="relative flex aspect-[4/3] items-end justify-between bg-[linear-gradient(135deg,#f7f7f5,#e7e5e4)] p-4">
+                      <div>
+                        <Badge variant="premium">#{index + 1} match</Badge>
+                        <p className="mt-3 text-2xl font-semibold tracking-tight text-neutral-950">
+                          {formatPrice(property.price)}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-white/90 px-3 py-2 text-center shadow-sm ring-1 ring-black/5">
+                        <p className="text-lg font-semibold text-neutral-950">
+                          {scorePercent}%
+                        </p>
+                        <p className="text-xs text-neutral-500">fit</p>
+                      </div>
+                    </div>
+                    <div className="space-y-4 p-4">
+                      <div>
+                        <h3 className="line-clamp-1 text-base font-semibold text-neutral-950">
+                          {property.title}
+                        </h3>
+                        <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-500">
+                          <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="line-clamp-1">
+                            {formatLocation(property) || "Location unavailable"}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3 text-sm text-neutral-600">
+                        <span className="inline-flex items-center gap-1.5">
+                          <BedDouble className="h-4 w-4" aria-hidden="true" />
+                          {property.bedrooms} bed
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Bath className="h-4 w-4" aria-hidden="true" />
+                          {property.bathrooms} bath
+                        </span>
+                        <span>{property.area_sqm} sqm</span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Badge>{property.property_type || "Rental"}</Badge>
+                        {amenityNames.slice(0, 2).map((amenity) => (
+                          <Badge key={amenity}>{amenity}</Badge>
+                        ))}
+                        {amenityNames.length > 2 ? (
+                          <Badge>+{amenityNames.length - 2}</Badge>
+                        ) : null}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 border-t border-neutral-100 pt-4 text-sm">
+                        <div>
+                          <p className="text-xs font-medium uppercase text-neutral-400">
+                            Deposit
+                          </p>
+                          <p className="mt-1 font-medium text-neutral-800">
+                            {property.deposit}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase text-neutral-400">
+                            Available
+                          </p>
+                          <p className="mt-1 font-medium text-neutral-800">
+                            {formatDate(property.available_from)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 border-t border-neutral-100 pt-4">
+                        <div className="flex flex-wrap gap-2">
+                          {reasons.slice(0, 2).map((reason) => (
+                            <Badge key={reason} variant="success">
+                              {reason}
+                            </Badge>
+                          ))}
+                        </div>
+                        {missing.length > 0 ? (
+                          <p className="line-clamp-1 text-xs text-neutral-500">
+                            Tradeoff: {missing[0]}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-green-700">No major gaps</p>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <form onSubmit={onRecommend} aria-label="Recommendation form">
+          <FilterPanel
+            title="Preference builder"
+            description="Each field contributes to the ranked matching model already used by this page."
+            actions={
+              <>
+                <Button type="submit" disabled={isGenerating}>
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Search className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  {isGenerating ? "Ranking..." : "Rank rentals"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onClearResults}
+                  disabled={isGenerating}
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  Clear results
+                </Button>
+              </>
+            }
+          >
+            <FormField label="Preferred city" htmlFor="city">
+              <Input
+                id="city"
+                type="text"
+                value={preferences.city}
+                onChange={(event) => onPreferenceChange("city", event.target.value)}
+                placeholder="Any city"
               />
-            </label>
-            <label>
-              Preferred longitude
-              <input
-                type="number"
-                step="any"
-                value={preferences.preferredLng}
+            </FormField>
+            <FormField label="Property type" htmlFor="propertyType">
+              <Input
+                id="propertyType"
+                type="text"
+                value={preferences.propertyType}
                 onChange={(event) =>
-                  onPreferenceChange("preferredLng", event.target.value)
+                  onPreferenceChange("propertyType", event.target.value)
                 }
+                placeholder="Apartment, studio, house"
               />
-            </label>
-            <label>
-              Max distance (km)
-              <input
+            </FormField>
+            <FormField label="Minimum budget" htmlFor="minBudget">
+              <Input
+                id="minBudget"
                 type="number"
                 min="0"
-                step="0.1"
-                value={preferences.maxDistanceKm}
+                step="0.01"
+                value={preferences.minBudget}
                 onChange={(event) =>
-                  onPreferenceChange("maxDistanceKm", event.target.value)
+                  onPreferenceChange("minBudget", event.target.value)
                 }
+                placeholder="0"
               />
-            </label>
-            <div>
-              <button type="button" onClick={onUseLocation}>
-                Use my location
-              </button>
-              {locationError ? <p role="alert">{locationError}</p> : null}
-            </div>
-          </fieldset>
+            </FormField>
+            <FormField label="Maximum budget" htmlFor="maxBudget">
+              <Input
+                id="maxBudget"
+                type="number"
+                min="0"
+                step="0.01"
+                value={preferences.maxBudget}
+                onChange={(event) =>
+                  onPreferenceChange("maxBudget", event.target.value)
+                }
+                placeholder="No limit"
+              />
+            </FormField>
+          </FilterPanel>
 
-          <div>
-            <button type="submit" disabled={isGenerating}>
-              {isGenerating ? "Generating..." : "Get recommendations"}
-            </button>
-            <button type="button" onClick={onClearResults}>
-              Clear results
-            </button>
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <Card>
+              <CardHeader>
+                <CardTitle>Desired amenities</CardTitle>
+                <p className="text-sm leading-6 text-neutral-500">
+                  Select must-have features to influence the amenity portion of
+                  the match score.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {amenities.length === 0 ? (
+                  <EmptyState
+                    title="No amenities available"
+                    description="Amenities added to the marketplace will appear as selectable matching signals."
+                    icon={<Building2 className="h-5 w-5" aria-hidden="true" />}
+                    className="p-6"
+                  />
+                ) : (
+                  <fieldset>
+                    <legend className="sr-only">Selected amenities</legend>
+                    <div className="flex flex-wrap gap-2">
+                      {amenities.map((amenity) => {
+                        const selected = preferences.amenityIds.includes(amenity.id);
+
+                        return (
+                          <label
+                            key={amenity.id}
+                            className={cn(
+                              "inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors",
+                              selected
+                                ? "border-neutral-950 bg-neutral-950 text-white"
+                                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50",
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={selected}
+                              onChange={() => toggleAmenity(amenity.id)}
+                            />
+                            {selected ? (
+                              <Check className="h-4 w-4" aria-hidden="true" />
+                            ) : null}
+                            {amenity.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Location radius</CardTitle>
+                <p className="text-sm leading-6 text-neutral-500">
+                  Add coordinates when distance matters more than city name.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField label="Preferred latitude" htmlFor="preferredLat">
+                  <Input
+                    id="preferredLat"
+                    type="number"
+                    step="any"
+                    value={preferences.preferredLat}
+                    onChange={(event) =>
+                      onPreferenceChange("preferredLat", event.target.value)
+                    }
+                    placeholder="Latitude"
+                  />
+                </FormField>
+                <FormField label="Preferred longitude" htmlFor="preferredLng">
+                  <Input
+                    id="preferredLng"
+                    type="number"
+                    step="any"
+                    value={preferences.preferredLng}
+                    onChange={(event) =>
+                      onPreferenceChange("preferredLng", event.target.value)
+                    }
+                    placeholder="Longitude"
+                  />
+                </FormField>
+                <FormField label="Max distance (km)" htmlFor="maxDistanceKm">
+                  <Input
+                    id="maxDistanceKm"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={preferences.maxDistanceKm}
+                    onChange={(event) =>
+                      onPreferenceChange("maxDistanceKm", event.target.value)
+                    }
+                    placeholder="Any distance"
+                  />
+                </FormField>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onUseLocation}
+                  className="w-full"
+                >
+                  <Crosshair className="h-4 w-4" aria-hidden="true" />
+                  Use my location
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </form>
-      </section>
 
-      <section aria-label="Recommendation results">
-        <h2>Top matches</h2>
-        {recommendationError ? <p role="alert">{recommendationError}</p> : null}
-        {isGenerating ? (
-          <p>Calculating recommendations...</p>
-        ) : recommendations.length === 0 ? (
-          <p>
-            {hasSearched
-              ? "No approved properties matched your preferences yet."
-              : "No recommendations yet. Submit your preferences to see matches."}
-          </p>
-        ) : (
-          <div>
-            {recommendations.map((item) => {
-              const { property, reasons, missing, scorePercent } = item;
-              const amenityNames = (property.property_amenities ?? [])
-                .map((amenity) => amenity.amenities?.name)
-                .filter((name): name is string => Boolean(name));
+        <section
+          aria-label="Scoring explanation"
+          className="grid gap-3 md:grid-cols-3"
+        >
+          {[
+            {
+              label: "Preferences",
+              value: activePreferenceCount,
+              icon: <Target className="h-4 w-4" aria-hidden="true" />,
+            },
+            {
+              label: "Matches",
+              value: recommendations.length,
+              icon: <Sparkles className="h-4 w-4" aria-hidden="true" />,
+            },
+            {
+              label: "Top score",
+              value: topScore === null ? "N/A" : `${topScore}%`,
+              icon: <Star className="h-4 w-4" aria-hidden="true" />,
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3"
+            >
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-neutral-600">
+                {stat.icon}
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-neutral-400">
+                  {stat.label}
+                </p>
+                <p className="text-lg font-semibold tracking-tight text-neutral-950">
+                  {stat.value}
+                </p>
+              </div>
+            </div>
+          ))}
+        </section>
 
-              return (
-                <article key={property.id}>
-                  <h3>{property.title}</h3>
-                  <p>Match score: {scorePercent}%</p>
-                  <p>
-                    Location: {property.city || ""}
-                    {property.state ? `, ${property.state}` : ""}
-                    {property.country ? `, ${property.country}` : ""}
-                  </p>
-                  <p>Type: {property.property_type || "Not specified"}</p>
-                  <p>Price: {property.price}</p>
-                  <p>Deposit: {property.deposit}</p>
-                  <p>Advance: {property.advance}</p>
-                  <p>Bedrooms: {property.bedrooms}</p>
-                  <p>Bathrooms: {property.bathrooms}</p>
-                  <p>Area (sqm): {property.area_sqm}</p>
-                  <p>
-                    Available from:{" "}
-                    {property.available_from
-                      ? new Date(property.available_from).toLocaleDateString()
-                      : "Not specified"}
-                  </p>
-                  {amenityNames.length > 0 ? (
-                    <p>Amenities: {amenityNames.join(", ")}</p>
-                  ) : (
-                    <p>Amenities: Not specified</p>
-                  )}
-                  {reasons.length > 0 ? (
-                    <p>Matched: {reasons.join("; ")}</p>
-                  ) : null}
-                  {missing.length > 0 ? (
-                    <p>Missing: {missing.join("; ")}</p>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <section aria-label="Summary">
-        <h2>Preference summary</h2>
-        <p>Selected amenities: {selectedAmenityNames.join(", ") || "None"}</p>
-      </section>
-
-      <p>
-        Testing note: Until admin approval is implemented, manually approve a
-        property in Supabase using{` update properties set status = 'approved' where id = '';`}.
-      </p>
-
-      <LogoutButton />
-    </main>
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-neutral-950">
+                Preference summary
+              </p>
+              <p className="mt-1 text-sm leading-6 text-neutral-500">
+                Selected amenities: {selectedAmenityNames.join(", ") || "None"}
+              </p>
+            </div>
+            <Badge variant="info">
+              {hasSearched ? "Latest ranking ready" : "Ready to rank"}
+            </Badge>
+          </CardContent>
+        </Card>
+      </div>
+    </AppShell>
   );
 }

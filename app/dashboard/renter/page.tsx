@@ -3,7 +3,35 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import {
+  Bot,
+  Building2,
+  Compass,
+  Home,
+  Loader2,
+  Map,
+  MessageSquare,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+} from "lucide-react";
+import { AppShell } from "@/app/components/layout/app-shell";
+import type { SidebarNavItem } from "@/app/components/layout/sidebar-nav";
+import { PageHeader } from "@/app/components/layout/page-header";
 import LogoutButton from "@/app/components/logout-button";
+import { AlertMessage } from "@/app/components/ui/alert-message";
+import { Badge } from "@/app/components/ui/badge";
+import { Button } from "@/app/components/ui/button";
+import { Card, CardContent } from "@/app/components/ui/card";
+import { EmptyState } from "@/app/components/ui/empty-state";
+import { FilterPanel } from "@/app/components/ui/filter-panel";
+import { FormField } from "@/app/components/ui/form-field";
+import { Input } from "@/app/components/ui/input";
+import { PropertyCard } from "@/app/components/ui/property-card";
+import { PropertyCardSkeleton, Skeleton } from "@/app/components/ui/skeleton";
+import { Select } from "@/app/components/ui/select";
+import { Textarea } from "@/app/components/ui/textarea";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
@@ -83,6 +111,22 @@ const DEFAULT_FILTERS: Filters = {
   maxPrice: "",
   amenityId: "",
 };
+
+const renterNavItems: SidebarNavItem[] = [
+  { href: "/dashboard/renter", label: "Browse rentals", icon: Home },
+  { href: "/dashboard/renter/map", label: "Map", icon: Map },
+  {
+    href: "/dashboard/renter/recommendations",
+    label: "Recommendations",
+    icon: Sparkles,
+  },
+  {
+    href: "/dashboard/renter/assistant",
+    label: "AI Assistant",
+    icon: Bot,
+    badge: "Premium",
+  },
+];
 
 const groupByPropertyId = <T extends { property_id: string }>(items: T[]) => {
   return items.reduce<Record<string, T[]>>((acc, item) => {
@@ -181,10 +225,6 @@ export default function RenterDashboardPage() {
       query = query.lte("price", maxPrice);
     }
 
-    if (activeFilters.amenityId) {
-      query = query.eq("property_amenities.amenity_id", activeFilters.amenityId);
-    }
-
     const { data, error: queryError } = await query;
 
     if (queryError) {
@@ -195,9 +235,17 @@ export default function RenterDashboardPage() {
     }
 
     const nextProperties = normalizeProperties((data ?? []) as PropertyRow[]);
-    setProperties(nextProperties);
+    const filteredProperties = activeFilters.amenityId
+      ? nextProperties.filter((property) =>
+          (property.property_amenities ?? []).some(
+            (amenity) => amenity.amenity_id === activeFilters.amenityId,
+          ),
+        )
+      : nextProperties;
+
+    setProperties(filteredProperties);
     setSearchLoading(false);
-    return nextProperties;
+    return filteredProperties;
   };
 
   const loadInquiryAndReviewData = async (
@@ -591,292 +639,512 @@ export default function RenterDashboardPage() {
 
   if (loading) {
     return (
-      <main>
-        <p>Loading renter dashboard...</p>
-      </main>
+      <AppShell navItems={renterNavItems} title="Rental Marketplace">
+        <div className="mx-auto max-w-7xl space-y-6">
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-5 w-96 max-w-full" />
+          </div>
+          <Card>
+            <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <PropertyCardSkeleton />
+            <PropertyCardSkeleton />
+            <PropertyCardSkeleton />
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <main>
-      <h1>Renter Dashboard</h1>
-      {error ? <p role="alert">{error}</p> : null}
-      <p>Signed in as: {email ?? "Unknown"}</p>
-      <p>Role: renter</p>
-      <p>
-        <button type="button" onClick={() => router.push("/dashboard/renter/map")}>
-          View map
-        </button>
-      </p>
-      <p>
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard/renter/recommendations")}
-        >
-          View recommendations
-        </button>
-      </p>
-      <p>
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard/renter/assistant")}
-        >
-          Chat with assistant
-        </button>
-      </p>
+    <AppShell
+      navItems={renterNavItems}
+      title="Rental Marketplace"
+      topNavAction={email ? <Badge>{email}</Badge> : null}
+      sidebarFooter={<LogoutButton />}
+    >
+      <div className="mx-auto max-w-7xl space-y-5">
+        <PageHeader
+          eyebrow="Renter marketplace"
+          title="Browse approved rentals"
+          description="Search reviewed listings, compare property details, send inquiries, and leave reviews after contact."
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => router.push("/dashboard/renter/map")}
+              >
+                <Map className="h-4 w-4" aria-hidden="true" />
+                Map
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => router.push("/dashboard/renter/recommendations")}
+              >
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                Matches
+              </Button>
+              <Button
+                type="button"
+                onClick={() => router.push("/dashboard/renter/assistant")}
+              >
+                <Bot className="h-4 w-4" aria-hidden="true" />
+                AI Assistant
+              </Button>
+            </>
+          }
+        />
 
-      <section aria-label="Property search">
-        <h2>Search approved properties</h2>
-        <form onSubmit={onSearch}>
-          <label>
-            Search
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(event) => onFilterChange("search", event.target.value)}
-              placeholder="Title, description, address, or city"
-            />
-          </label>
-          <label>
-            City
-            <input
-              type="text"
-              value={filters.city}
-              onChange={(event) => onFilterChange("city", event.target.value)}
-            />
-          </label>
-          <label>
-            Property type
-            <input
-              type="text"
-              value={filters.propertyType}
-              onChange={(event) => onFilterChange("propertyType", event.target.value)}
-            />
-          </label>
-          <label>
-            Min price
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={filters.minPrice}
-              onChange={(event) => onFilterChange("minPrice", event.target.value)}
-            />
-          </label>
-          <label>
-            Max price
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={filters.maxPrice}
-              onChange={(event) => onFilterChange("maxPrice", event.target.value)}
-            />
-          </label>
-          <label>
-            Amenity
-            <select
-              value={filters.amenityId}
-              onChange={(event) => onFilterChange("amenityId", event.target.value)}
-            >
-              <option value="">Any amenity</option>
-              {amenities.map((amenity) => (
-                <option key={amenity.id} value={amenity.id}>
-                  {amenity.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div>
-            <button type="submit" disabled={searchLoading}>
-              {searchLoading ? "Searching..." : "Search"}
-            </button>
-            <button type="button" onClick={onClearFilters} disabled={searchLoading}>
-              Clear filters
-            </button>
-          </div>
-        </form>
-      </section>
+        {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
 
-      <section aria-label="Approved properties">
-        <h2>Approved properties</h2>
-        {searchError ? <p role="alert">{searchError}</p> : null}
-        {listError ? <p role="alert">{listError}</p> : null}
-        {searchLoading ? (
-          <p>Loading approved properties...</p>
-        ) : properties.length === 0 ? (
-          <p>No approved properties match your filters yet.</p>
-        ) : (
-          <div>
-            {properties.map((property) => {
-              const description = property.description?.trim();
-              const preview = description
-                ? description.slice(0, 160)
-                : "No description provided.";
-              const amenityNames = (property.property_amenities ?? [])
-                .map((item) => item.amenities?.name)
-                .filter((name): name is string => Boolean(name));
-
-              const inquiriesForProperty =
-                propertyInquiries[property.id] ?? [];
-              const reviewsForProperty = propertyReviews[property.id] ?? [];
-              const hasInquiry = inquiriesForProperty.length > 0;
-              const inquiryDraft = inquiryMessages[property.id] ?? "";
-              const reviewDraft = reviewDrafts[property.id] ?? {
-                rating: "",
-                comment: "",
-              };
-
-              return (
-                <article key={property.id}>
-                  <h3>{property.title}</h3>
-                  <p>{preview}</p>
-                  <p>Type: {property.property_type || "Not specified"}</p>
-                  <p>
-                    Location: {property.city || ""}
-                    {property.state ? `, ${property.state}` : ""}
-                    {property.country ? `, ${property.country}` : ""}
-                  </p>
-                  <p>Price: {property.price}</p>
-                  <p>Deposit: {property.deposit}</p>
-                  <p>Advance: {property.advance}</p>
-                  <p>Bedrooms: {property.bedrooms}</p>
-                  <p>Bathrooms: {property.bathrooms}</p>
-                  <p>Area (sqm): {property.area_sqm}</p>
-                  <p>
-                    Available from:{" "}
-                    {property.available_from
-                      ? new Date(property.available_from).toLocaleDateString()
-                      : "Not specified"}
-                  </p>
-                  {amenityNames.length > 0 ? (
-                    <p>Amenities: {amenityNames.join(", ")}</p>
+        <form onSubmit={onSearch} aria-label="Property search">
+          <FilterPanel
+            title="Search approved rentals"
+            description="Filter by location, type, budget, and amenities."
+            actions={
+              <>
+                <Button type="submit" disabled={searchLoading}>
+                  {searchLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <p>Amenities: Not specified</p>
+                    <Search className="h-4 w-4" aria-hidden="true" />
                   )}
+                  {searchLoading ? "Searching..." : "Search"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onClearFilters}
+                  disabled={searchLoading}
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                  Clear
+                </Button>
+              </>
+            }
+          >
+            <FormField label="Search" htmlFor="search">
+              <Input
+                id="search"
+                type="text"
+                value={filters.search}
+                onChange={(event) => onFilterChange("search", event.target.value)}
+                placeholder="Title, description, address, or city"
+              />
+            </FormField>
+            <FormField label="City" htmlFor="city">
+              <Input
+                id="city"
+                type="text"
+                value={filters.city}
+                onChange={(event) => onFilterChange("city", event.target.value)}
+                placeholder="Any city"
+              />
+            </FormField>
+            <FormField label="Property type" htmlFor="propertyType">
+              <Input
+                id="propertyType"
+                type="text"
+                value={filters.propertyType}
+                onChange={(event) =>
+                  onFilterChange("propertyType", event.target.value)
+                }
+                placeholder="Apartment, condo, studio"
+              />
+            </FormField>
+            <FormField label="Amenity" htmlFor="amenity">
+              <Select
+                id="amenity"
+                value={filters.amenityId}
+                onChange={(event) => onFilterChange("amenityId", event.target.value)}
+              >
+                <option value="">Any amenity</option>
+                {amenities.map((amenity) => (
+                  <option key={amenity.id} value={amenity.id}>
+                    {amenity.name}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label="Min price" htmlFor="minPrice">
+              <Input
+                id="minPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                value={filters.minPrice}
+                onChange={(event) => onFilterChange("minPrice", event.target.value)}
+                placeholder="0"
+              />
+            </FormField>
+            <FormField label="Max price" htmlFor="maxPrice">
+              <Input
+                id="maxPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                value={filters.maxPrice}
+                onChange={(event) => onFilterChange("maxPrice", event.target.value)}
+                placeholder="No limit"
+              />
+            </FormField>
+          </FilterPanel>
+        </form>
 
-                  <section aria-label="Inquiry">
-                    <h4>Send an inquiry</h4>
-                    {inquiryErrors[property.id] ? (
-                      <p role="alert">{inquiryErrors[property.id]}</p>
-                    ) : null}
-                    {inquirySuccess[property.id] ? (
-                      <p>{inquirySuccess[property.id]}</p>
-                    ) : null}
-                    <label>
-                      Message
-                      <textarea
-                        value={inquiryDraft}
-                        onChange={(event) =>
-                          onInquiryMessageChange(property.id, event.target.value)
-                        }
-                        rows={3}
-                        placeholder="Ask about availability, lease terms, or schedule a viewing."
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => onSendInquiry(property)}
-                      disabled={Boolean(inquirySending[property.id])}
-                    >
-                      {inquirySending[property.id]
-                        ? "Sending inquiry..."
-                        : "Send inquiry"}
-                    </button>
-                  </section>
-
-                  <section aria-label="Reviews">
-                    <h4>Leave a review</h4>
-                    {!hasInquiry ? (
-                      <p>
-                        Send an inquiry for this property first before leaving a
-                        review.
-                      </p>
-                    ) : null}
-                    {reviewErrors[property.id] ? (
-                      <p role="alert">{reviewErrors[property.id]}</p>
-                    ) : null}
-                    {reviewSuccess[property.id] ? (
-                      <p>{reviewSuccess[property.id]}</p>
-                    ) : null}
-                    <label>
-                      Rating
-                      <select
-                        value={reviewDraft.rating}
-                        onChange={(event) =>
-                          onReviewDraftChange(
-                            property.id,
-                            "rating",
-                            event.target.value,
-                          )
-                        }
-                        disabled={!hasInquiry}
-                      >
-                        <option value="">Select rating</option>
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                      </select>
-                    </label>
-                    <label>
-                      Comment
-                      <textarea
-                        value={reviewDraft.comment}
-                        onChange={(event) =>
-                          onReviewDraftChange(
-                            property.id,
-                            "comment",
-                            event.target.value,
-                          )
-                        }
-                        rows={3}
-                        placeholder="Share your experience (optional)."
-                        disabled={!hasInquiry}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => onSubmitReview(property)}
-                      disabled={!hasInquiry || Boolean(reviewSending[property.id])}
-                    >
-                      {reviewSending[property.id]
-                        ? "Submitting review..."
-                        : "Submit review"}
-                    </button>
-
-                    <div>
-                      <h5>Reviews</h5>
-                      {reviewsForProperty.length === 0 ? (
-                        <p>No reviews yet.</p>
-                      ) : (
-                        <ul>
-                          {reviewsForProperty.map((review) => (
-                            <li key={review.id}>
-                              <strong>Rating:</strong> {review.rating}/5
-                              {review.comment ? ` - ${review.comment}` : ""}
-                              <div>
-                                {new Date(review.created_at).toLocaleDateString()}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </section>
-                </article>
-              );
-            })}
+        <section aria-label="Approved properties" className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-neutral-950">
+                Approved rentals
+              </h2>
+              <p className="text-sm leading-6 text-neutral-500">
+                Marketplace listings reviewed for renter visibility.
+              </p>
+            </div>
+            <Badge variant="success">Approved only</Badge>
           </div>
-        )}
-        <p>
-          Testing note: Until admin approval is implemented, manually approve a
-          property in Supabase using{` update properties set status = 'approved' where id = '';`}.
-        </p>
-      </section>
 
-      <LogoutButton />
-    </main>
+          {searchError ? <AlertMessage variant="danger">{searchError}</AlertMessage> : null}
+          {listError ? <AlertMessage variant="danger">{listError}</AlertMessage> : null}
+
+          {searchLoading ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <PropertyCardSkeleton />
+              <PropertyCardSkeleton />
+            </div>
+          ) : properties.length === 0 ? (
+            <EmptyState
+              title="No approved rentals match your filters"
+              description="Try widening your city, budget, property type, or amenity filters."
+              icon={<Compass className="h-5 w-5" aria-hidden="true" />}
+              action={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onClearFilters}
+                  disabled={searchLoading}
+                >
+                  Clear filters
+                </Button>
+              }
+            />
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {properties.map((property) => {
+                const description = property.description?.trim();
+                const preview = description
+                  ? description.slice(0, 160)
+                  : "No description provided.";
+                const amenityNames = (property.property_amenities ?? [])
+                  .map((item) => item.amenities?.name)
+                  .filter((name): name is string => Boolean(name));
+
+                const inquiriesForProperty =
+                  propertyInquiries[property.id] ?? [];
+                const reviewsForProperty = propertyReviews[property.id] ?? [];
+                const hasInquiry = inquiriesForProperty.length > 0;
+                const inquiryDraft = inquiryMessages[property.id] ?? "";
+                const reviewDraft = reviewDrafts[property.id] ?? {
+                  rating: "",
+                  comment: "",
+                };
+
+                return (
+                  <PropertyCard
+                    key={property.id}
+                    title={property.title}
+                    city={property.city}
+                    address={[property.state, property.country]
+                      .filter(Boolean)
+                      .join(", ")}
+                    propertyType={property.property_type || "Not specified"}
+                    monthlyRent={property.price}
+                    bedrooms={property.bedrooms}
+                    bathrooms={property.bathrooms}
+                    amenities={amenityNames}
+                    description={preview}
+                    status="approved"
+                    meta={
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs font-medium uppercase text-neutral-400">
+                            Deposit
+                          </p>
+                          <p className="mt-1 font-medium text-neutral-800">
+                            {property.deposit}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase text-neutral-400">
+                            Advance
+                          </p>
+                          <p className="mt-1 font-medium text-neutral-800">
+                            {property.advance}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase text-neutral-400">
+                            Area
+                          </p>
+                          <p className="mt-1 font-medium text-neutral-800">
+                            {property.area_sqm} sqm
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase text-neutral-400">
+                            Available
+                          </p>
+                          <p className="mt-1 font-medium text-neutral-800">
+                            {property.available_from
+                              ? new Date(property.available_from).toLocaleDateString()
+                              : "Not set"}
+                          </p>
+                        </div>
+                      </div>
+                    }
+                    actions={
+                      <div className="w-full space-y-5">
+                        <section aria-label="Inquiry" className="space-y-3">
+                          <div>
+                            <h3 className="text-sm font-semibold text-neutral-950">
+                              Send an inquiry
+                            </h3>
+                            <p className="text-sm leading-6 text-neutral-500">
+                              Ask about availability, lease terms, or viewing times.
+                            </p>
+                          </div>
+                          {inquiryErrors[property.id] ? (
+                            <AlertMessage variant="danger">
+                              {inquiryErrors[property.id]}
+                            </AlertMessage>
+                          ) : null}
+                          {inquirySuccess[property.id] ? (
+                            <AlertMessage variant="success">
+                              {inquirySuccess[property.id]}
+                            </AlertMessage>
+                          ) : null}
+                          <FormField label="Message" htmlFor={`inquiry-${property.id}`}>
+                            <Textarea
+                              id={`inquiry-${property.id}`}
+                              value={inquiryDraft}
+                              onChange={(event) =>
+                                onInquiryMessageChange(
+                                  property.id,
+                                  event.target.value,
+                                )
+                              }
+                              rows={3}
+                              placeholder="Ask about availability, lease terms, or schedule a viewing."
+                            />
+                          </FormField>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => onSendInquiry(property)}
+                            disabled={Boolean(inquirySending[property.id])}
+                            className="w-full"
+                          >
+                            {inquirySending[property.id] ? (
+                              <Loader2
+                                className="h-4 w-4 animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <MessageSquare
+                                className="h-4 w-4"
+                                aria-hidden="true"
+                              />
+                            )}
+                            {inquirySending[property.id]
+                              ? "Sending inquiry..."
+                              : "Send inquiry"}
+                          </Button>
+                        </section>
+
+                        <section
+                          aria-label="Reviews"
+                          className="space-y-3 border-t border-neutral-100 pt-5"
+                        >
+                          <div>
+                            <h3 className="text-sm font-semibold text-neutral-950">
+                              Reviews
+                            </h3>
+                            <p className="text-sm leading-6 text-neutral-500">
+                              You can review this listing after sending an inquiry.
+                            </p>
+                          </div>
+                          {!hasInquiry ? (
+                            <AlertMessage variant="info">
+                              Send an inquiry for this property first before leaving
+                              a review.
+                            </AlertMessage>
+                          ) : null}
+                          {reviewErrors[property.id] ? (
+                            <AlertMessage variant="danger">
+                              {reviewErrors[property.id]}
+                            </AlertMessage>
+                          ) : null}
+                          {reviewSuccess[property.id] ? (
+                            <AlertMessage variant="success">
+                              {reviewSuccess[property.id]}
+                            </AlertMessage>
+                          ) : null}
+                          <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+                            <FormField label="Rating" htmlFor={`rating-${property.id}`}>
+                              <Select
+                                id={`rating-${property.id}`}
+                                value={reviewDraft.rating}
+                                onChange={(event) =>
+                                  onReviewDraftChange(
+                                    property.id,
+                                    "rating",
+                                    event.target.value,
+                                  )
+                                }
+                                disabled={!hasInquiry}
+                              >
+                                <option value="">Select</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                              </Select>
+                            </FormField>
+                            <FormField label="Comment" htmlFor={`comment-${property.id}`}>
+                              <Textarea
+                                id={`comment-${property.id}`}
+                                value={reviewDraft.comment}
+                                onChange={(event) =>
+                                  onReviewDraftChange(
+                                    property.id,
+                                    "comment",
+                                    event.target.value,
+                                  )
+                                }
+                                rows={3}
+                                placeholder="Share your experience (optional)."
+                                disabled={!hasInquiry}
+                              />
+                            </FormField>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => onSubmitReview(property)}
+                            disabled={
+                              !hasInquiry || Boolean(reviewSending[property.id])
+                            }
+                            className="w-full"
+                          >
+                            {reviewSending[property.id] ? (
+                              <Loader2
+                                className="h-4 w-4 animate-spin"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <Star className="h-4 w-4" aria-hidden="true" />
+                            )}
+                            {reviewSending[property.id]
+                              ? "Submitting review..."
+                              : "Submit review"}
+                          </Button>
+
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-neutral-900">
+                              Recent reviews
+                            </p>
+                            {reviewsForProperty.length === 0 ? (
+                              <p className="rounded-md border border-dashed border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-500">
+                                No reviews yet.
+                              </p>
+                            ) : (
+                              <ul className="space-y-2">
+                                {reviewsForProperty.map((review) => (
+                                  <li
+                                    key={review.id}
+                                    className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm"
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span className="font-medium text-neutral-950">
+                                        {review.rating}/5
+                                      </span>
+                                      <span className="text-xs text-neutral-500">
+                                        {new Date(
+                                          review.created_at,
+                                        ).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                    {review.comment ? (
+                                      <p className="mt-2 leading-6 text-neutral-600">
+                                        {review.comment}
+                                      </p>
+                                    ) : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </section>
+                      </div>
+                    }
+                  />
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section aria-label="Marketplace summary" className="grid gap-3 md:grid-cols-3">
+          {[
+            {
+              label: "Approved rentals",
+              value: properties.length,
+              icon: <Building2 className="h-4 w-4" aria-hidden="true" />,
+            },
+            {
+              label: "Your inquiries",
+              value: Object.values(propertyInquiries).reduce(
+                (total, items) => total + items.length,
+                0,
+              ),
+              icon: <MessageSquare className="h-4 w-4" aria-hidden="true" />,
+            },
+            {
+              label: "Reviewed",
+              value: Object.values(propertyReviews).filter(
+                (items) => items.length > 0,
+              ).length,
+              icon: <Star className="h-4 w-4" aria-hidden="true" />,
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3"
+            >
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-neutral-600">
+                {stat.icon}
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase text-neutral-400">
+                  {stat.label}
+                </p>
+                <p className="text-lg font-semibold tracking-tight text-neutral-950">
+                  {stat.value}
+                </p>
+              </div>
+            </div>
+          ))}
+        </section>
+      </div>
+    </AppShell>
   );
 }

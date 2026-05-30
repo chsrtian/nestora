@@ -3,7 +3,27 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import {
+  BadgeCheck,
+  Building2,
+  CheckCircle2,
+  ClipboardCheck,
+  Loader2,
+  ShieldCheck,
+  UserCheck,
+  XCircle,
+} from "lucide-react";
+import { AppShell } from "@/app/components/layout/app-shell";
+import type { SidebarNavItem } from "@/app/components/layout/sidebar-nav";
+import { PageHeader } from "@/app/components/layout/page-header";
 import LogoutButton from "@/app/components/logout-button";
+import { AlertMessage } from "@/app/components/ui/alert-message";
+import { Badge } from "@/app/components/ui/badge";
+import { Button } from "@/app/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { EmptyState } from "@/app/components/ui/empty-state";
+import { Skeleton } from "@/app/components/ui/skeleton";
+import { StatusBadge } from "@/app/components/ui/status-badge";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
@@ -40,6 +60,26 @@ function normalizeEmbeddedOne<T>(value: EmbeddedOne<T>): T | null {
   }
 
   return value;
+}
+
+const adminNavItems: SidebarNavItem[] = [
+  { href: "/dashboard/admin", label: "Trust center", icon: ShieldCheck },
+];
+
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 export default function AdminDashboardPage() {
@@ -222,112 +262,387 @@ export default function AdminDashboardPage() {
 
   if (loading) {
     return (
-      <main>
-        <p>Loading admin dashboard...</p>
-      </main>
+      <AppShell navItems={adminNavItems} title="Trust Center">
+        <div className="mx-auto max-w-7xl space-y-5">
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-72" />
+            <Skeleton className="h-5 w-[34rem] max-w-full" />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <div className="grid gap-5 xl:grid-cols-2">
+            <Skeleton className="h-[28rem] w-full" />
+            <Skeleton className="h-[28rem] w-full" />
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <main>
-      <h1>Admin Dashboard</h1>
-      {error ? <p role="alert">{error}</p> : null}
-      {listError ? <p role="alert">{listError}</p> : null}
-      {actionError ? <p role="alert">{actionError}</p> : null}
-      <p>Signed in as: {email ?? "Unknown"}</p>
-      <p>Role: admin</p>
+    <AppShell
+      navItems={adminNavItems}
+      title="Trust Center"
+      topNavAction={email ? <Badge>{email}</Badge> : null}
+      sidebarFooter={<LogoutButton />}
+      className="pb-8"
+    >
+      <div className="mx-auto max-w-7xl space-y-5">
+        <PageHeader
+          eyebrow="Admin review queue"
+          title="Trust & Review Center"
+          description="A compact operations desk for approving pending listings and landlord trust requests."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              {dataLoading ? <Badge variant="info">Refreshing</Badge> : null}
+              <Badge variant="premium">Admin only</Badge>
+            </div>
+          }
+        />
 
-      <section aria-label="Pending properties">
-        <h2>Pending properties</h2>
-        {dataLoading ? <p>Loading pending properties...</p> : null}
-        {!dataLoading && pendingProperties.length === 0 ? (
-          <p>No pending properties.</p>
-        ) : null}
-        {!dataLoading && pendingProperties.length > 0 ? (
-          <ul>
-            {pendingProperties.map((property) => (
-              <li key={property.id}>
-                <strong>{property.title}</strong>
-                <div>City: {property.city || "Not specified"}</div>
-                <div>Price: {property.price}</div>
-                <div>Landlord ID: {property.landlord_id}</div>
-                <div>
-                  Submitted: {new Date(property.created_at).toLocaleDateString()}
-                </div>
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => updatePropertyStatus(property.id, "approved")}
-                    disabled={Boolean(propertyActionLoading[property.id])}
-                  >
-                    {propertyActionLoading[property.id]
-                      ? "Updating..."
-                      : "Approve"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updatePropertyStatus(property.id, "rejected")}
-                    disabled={Boolean(propertyActionLoading[property.id])}
-                  >
-                    {propertyActionLoading[property.id]
-                      ? "Updating..."
-                      : "Reject"}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
+        {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
+        {listError ? <AlertMessage variant="danger">{listError}</AlertMessage> : null}
+        {actionError ? <AlertMessage variant="danger">{actionError}</AlertMessage> : null}
 
-      <section aria-label="Pending verification requests">
-        <h2>Pending landlord verification</h2>
-        {dataLoading ? <p>Loading verification requests...</p> : null}
-        {!dataLoading && pendingRequests.length === 0 ? (
-          <p>No pending verification requests.</p>
-        ) : null}
-        {!dataLoading && pendingRequests.length > 0 ? (
-          <ul>
-            {pendingRequests.map((request) => (
-              <li key={request.id}>
-                <strong>Landlord ID: {request.landlord_id}</strong>
+        <section aria-label="Review queue stats" className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-neutral-500">
+                  Pending listings
+                </p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-neutral-950">
+                  {pendingProperties.length}
+                </p>
+              </div>
+              <div className="rounded-md bg-neutral-950 p-2 text-white">
+                <Building2 className="h-4 w-4" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-3">
+              <span className="text-sm text-neutral-500">Property approval queue</span>
+              <Badge variant="warning">Review</Badge>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-neutral-500">
+                  Pending verifications
+                </p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-neutral-950">
+                  {pendingRequests.length}
+                </p>
+              </div>
+              <div className="rounded-md bg-neutral-950 p-2 text-white">
+                <UserCheck className="h-4 w-4" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-3">
+              <span className="text-sm text-neutral-500">Landlord trust queue</span>
+              <Badge variant="info">Trust</Badge>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          <Card className="overflow-hidden shadow-sm">
+            <CardHeader className="border-b border-neutral-200 bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  Name: {request.profiles?.full_name || "Not available"}
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck className="h-4 w-4 text-neutral-500" aria-hidden="true" />
+                    <CardTitle>Pending property approvals</CardTitle>
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">
+                    Submitted rentals waiting for marketplace review.
+                  </p>
                 </div>
+                <Badge variant="warning" className="px-3 py-1">
+                  {pendingProperties.length} pending
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {dataLoading ? (
+                <div className="space-y-3 p-4">
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-24 w-full" />
+                </div>
+              ) : pendingProperties.length === 0 ? (
+                <div className="p-4">
+                  <EmptyState
+                    title="No pending listings"
+                    description="Submitted properties awaiting admin review will appear here."
+                    icon={<ClipboardCheck className="h-5 w-5" aria-hidden="true" />}
+                    className="p-6"
+                  />
+                </div>
+              ) : (
+                <div className="divide-y divide-neutral-100">
+                  {pendingProperties.map((property) => {
+                    const busy = Boolean(propertyActionLoading[property.id]);
+
+                    return (
+                      <article
+                        key={property.id}
+                        className="bg-white p-4 transition-colors hover:bg-neutral-50/70"
+                      >
+                        <div className="flex flex-col gap-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="line-clamp-1 text-base font-semibold text-neutral-950">
+                                  {property.title}
+                                </h3>
+                                <StatusBadge status={property.status} />
+                              </div>
+                              <p className="mt-1 truncate text-sm text-neutral-500">
+                                {property.city || "City not specified"} - Landlord {property.landlord_id}
+                              </p>
+                            </div>
+                            <div className="text-left sm:text-right">
+                              <p className="text-lg font-semibold tracking-tight text-neutral-950">
+                                {formatPrice(property.price)}
+                              </p>
+                              <p className="text-xs text-neutral-500">
+                                Submitted {formatDate(property.created_at)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2 text-sm md:grid-cols-4">
+                            <div className="rounded-md bg-neutral-50 p-3">
+                              <p className="text-xs font-medium uppercase text-neutral-400">
+                                City
+                              </p>
+                              <p className="mt-1 truncate font-medium text-neutral-800">
+                                {property.city || "Not specified"}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-neutral-50 p-3">
+                              <p className="text-xs font-medium uppercase text-neutral-400">
+                                Landlord
+                              </p>
+                              <p className="mt-1 truncate font-medium text-neutral-800">
+                                {property.landlord_id}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-neutral-50 p-3">
+                              <p className="text-xs font-medium uppercase text-neutral-400">
+                                Current status
+                              </p>
+                              <div className="mt-1">
+                                <StatusBadge status={property.status} />
+                              </div>
+                            </div>
+                            <div className="rounded-md bg-neutral-50 p-3">
+                              <p className="text-xs font-medium uppercase text-neutral-400">
+                                Price
+                              </p>
+                              <p className="mt-1 font-medium text-neutral-800">
+                                {formatPrice(property.price)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="danger"
+                              size="sm"
+                              onClick={() =>
+                                updatePropertyStatus(property.id, "rejected")
+                              }
+                              disabled={busy}
+                            >
+                              {busy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <XCircle className="h-4 w-4" aria-hidden="true" />
+                              )}
+                              Reject
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="success"
+                              size="sm"
+                              onClick={() =>
+                                updatePropertyStatus(property.id, "approved")
+                              }
+                              disabled={busy}
+                            >
+                              {busy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                              )}
+                              Approve
+                            </Button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden shadow-sm">
+            <CardHeader className="border-b border-neutral-200 bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  Current status:{" "}
-                  {request.profiles?.verification_status || "Unknown"}
+                  <div className="flex items-center gap-2">
+                    <BadgeCheck className="h-4 w-4 text-neutral-500" aria-hidden="true" />
+                    <CardTitle>Pending landlord verification</CardTitle>
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">
+                    Host trust requests waiting for admin decision.
+                  </p>
                 </div>
-                <div>
-                  Submitted: {new Date(request.submitted_at).toLocaleDateString()}
+                <Badge variant="info" className="px-3 py-1">
+                  {pendingRequests.length} pending
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {dataLoading ? (
+                <div className="space-y-3 p-4">
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-24 w-full" />
                 </div>
-                {request.notes ? <div>Notes: {request.notes}</div> : null}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => updateVerification(request, "verified")}
-                    disabled={Boolean(requestActionLoading[request.id])}
-                  >
-                    {requestActionLoading[request.id]
-                      ? "Updating..."
-                      : "Approve"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateVerification(request, "rejected")}
-                    disabled={Boolean(requestActionLoading[request.id])}
-                  >
-                    {requestActionLoading[request.id]
-                      ? "Updating..."
-                      : "Reject"}
-                  </button>
+              ) : pendingRequests.length === 0 ? (
+                <div className="p-4">
+                  <EmptyState
+                    title="No pending verifications"
+                    description="Landlord verification requests awaiting admin review will appear here."
+                    icon={<BadgeCheck className="h-5 w-5" aria-hidden="true" />}
+                    className="p-6"
+                  />
                 </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
-      <LogoutButton />
-    </main>
+              ) : (
+                <div className="divide-y divide-neutral-100">
+                  {pendingRequests.map((request) => {
+                    const busy = Boolean(requestActionLoading[request.id]);
+                    const landlordName =
+                      request.profiles?.full_name || "Landlord name unavailable";
+
+                    return (
+                      <article
+                        key={request.id}
+                        className="bg-white p-4 transition-colors hover:bg-neutral-50/70"
+                      >
+                        <div className="flex flex-col gap-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="line-clamp-1 text-base font-semibold text-neutral-950">
+                                  {landlordName}
+                                </h3>
+                                <StatusBadge status={request.status} />
+                              </div>
+                              <p className="mt-1 truncate text-sm text-neutral-500">
+                                Landlord {request.landlord_id}
+                              </p>
+                            </div>
+                            <div className="text-left sm:text-right">
+                              <p className="text-sm font-medium text-neutral-950">
+                                Request date
+                              </p>
+                              <p className="text-xs text-neutral-500">
+                                {formatDate(request.submitted_at)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2 text-sm md:grid-cols-4">
+                            <div className="rounded-md bg-neutral-50 p-3">
+                              <p className="text-xs font-medium uppercase text-neutral-400">
+                                Landlord
+                              </p>
+                              <p className="mt-1 truncate font-medium text-neutral-800">
+                                {landlordName}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-neutral-50 p-3">
+                              <p className="text-xs font-medium uppercase text-neutral-400">
+                                Request date
+                              </p>
+                              <p className="mt-1 font-medium text-neutral-800">
+                                {formatDate(request.submitted_at)}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-neutral-50 p-3">
+                              <p className="text-xs font-medium uppercase text-neutral-400">
+                                Current status
+                              </p>
+                              <div className="mt-1">
+                                <StatusBadge status={request.status} />
+                              </div>
+                            </div>
+                            <div className="rounded-md bg-neutral-50 p-3">
+                              <p className="text-xs font-medium uppercase text-neutral-400">
+                                Profile status
+                              </p>
+                              <p className="mt-1 truncate font-medium text-neutral-800">
+                                {request.profiles?.verification_status ||
+                                  "Unknown"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {request.notes ? (
+                            <div className="rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-600">
+                              {request.notes}
+                            </div>
+                          ) : null}
+
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="danger"
+                              size="sm"
+                              onClick={() => updateVerification(request, "rejected")}
+                              disabled={busy}
+                            >
+                              {busy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <XCircle className="h-4 w-4" aria-hidden="true" />
+                              )}
+                              Reject
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="success"
+                              size="sm"
+                              onClick={() => updateVerification(request, "verified")}
+                              disabled={busy}
+                            >
+                              {busy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                              )}
+                              Approve
+                            </Button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </AppShell>
   );
 }
