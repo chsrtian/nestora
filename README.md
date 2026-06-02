@@ -18,6 +18,30 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Cabadbaran Seed Data
+
+The renter map only shows approved, source-verified Cabadbaran accommodations
+with valid coordinates and source metadata. To apply the required metadata
+migration and seed the verified accommodation candidates, set `SUPABASE_DB_URL`
+to the Supabase direct PostgreSQL connection string, then run:
+
+```bash
+npm run seed:ph
+```
+
+This applies `supabase/migrations/0007_property_seed_verification_metadata.sql`,
+imports `supabase/seed.ph-demo.sql`, and runs
+`supabase/seed.ph-demo.validation.sql`. To run only the validation checks after
+an import:
+
+```bash
+npm run seed:ph:validate
+```
+
+Expected validation results include 8 total Cabadbaran seed records and 4
+coordinate-ready map records: MLM Pension House, Gazebo Pools and Restaurant,
+E & G Hotel and Convention Center / Resort, and La Dolce Vita Inland Resort.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -1,40 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import {
+  Bath,
+  BedDouble,
   Bot,
   Building2,
-  Compass,
+  Check,
   Home,
+  Heart,
+  LayoutGrid,
+  List,
   Loader2,
   Map,
+  MapPin,
   MessageSquare,
+  Ruler,
   Search,
   SlidersHorizontal,
   Sparkles,
   Star,
+  X,
 } from "lucide-react";
 import { AppShell } from "@/app/components/layout/app-shell";
 import type { SidebarNavItem } from "@/app/components/layout/sidebar-nav";
-import { PageHeader } from "@/app/components/layout/page-header";
 import LogoutButton from "@/app/components/logout-button";
 import { AlertMessage } from "@/app/components/ui/alert-message";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
-import { Card, CardContent } from "@/app/components/ui/card";
-import { EmptyState } from "@/app/components/ui/empty-state";
-import { FilterPanel } from "@/app/components/ui/filter-panel";
 import { FormField } from "@/app/components/ui/form-field";
 import { Input } from "@/app/components/ui/input";
-import { PropertyCard } from "@/app/components/ui/property-card";
-import { PropertyCardSkeleton, Skeleton } from "@/app/components/ui/skeleton";
+import { Skeleton } from "@/app/components/ui/skeleton";
 import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
+import { formatMonthlyRentInPHP, formatPriceInPHP } from "@/lib/currency";
+import { toggleFavorite } from "@/lib/favorites";
 
 type Amenity = {
   id: string;
@@ -55,15 +60,18 @@ type Property = {
   city: string | null;
   state: string | null;
   country: string | null;
-  price: number;
-  deposit: number;
-  advance: number;
-  bedrooms: number;
-  bathrooms: number;
-  area_sqm: number;
+  price: number | null;
+  deposit: number | null;
+  advance: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  area_sqm: number | null;
+  verification_status: "verified" | "needs_verification" | "incomplete" | null;
+  source_note: string | null;
   available_from: string | null;
   created_at: string;
   property_amenities?: PropertyAmenity[] | null;
+  property_images?: { storage_path: string; is_cover: boolean }[] | null;
 };
 
 type EmbeddedOne<T> = T | T[] | null;
@@ -72,8 +80,9 @@ type PropertyAmenityRow = Omit<PropertyAmenity, "amenities"> & {
   amenities: EmbeddedOne<PropertyAmenity["amenities"]>;
 };
 
-type PropertyRow = Omit<Property, "property_amenities"> & {
+type PropertyRow = Omit<Property, "property_amenities" | "property_images"> & {
   property_amenities?: PropertyAmenityRow[] | null;
+  property_images?: { storage_path: string; is_cover: boolean }[] | null;
 };
 
 type Inquiry = {
@@ -112,6 +121,8 @@ const DEFAULT_FILTERS: Filters = {
   amenityId: "",
 };
 
+type SortMode = "newest" | "price_asc" | "price_desc" | "title_asc";
+
 const renterNavItems: SidebarNavItem[] = [
   { href: "/dashboard/renter", label: "Browse rentals", icon: Home },
   { href: "/dashboard/renter/map", label: "Map", icon: Map },
@@ -125,6 +136,16 @@ const renterNavItems: SidebarNavItem[] = [
     label: "AI Assistant",
     icon: Bot,
     badge: "Premium",
+  },
+  {
+    href: "/dashboard/renter/saved",
+    label: "Saved",
+    icon: Heart,
+  },
+  {
+    href: "/dashboard/renter/inquiries",
+    label: "My inquiries",
+    icon: MessageSquare,
   },
 ];
 
@@ -153,7 +174,69 @@ function normalizeProperties(rows: PropertyRow[]): Property[] {
       ...amenity,
       amenities: normalizeEmbeddedOne(amenity.amenities),
     })) ?? null,
+    property_images: property.property_images ?? null,
   }));
+}
+
+function formatRent(value: number | null) {
+  if (value === null) return "Not listed";
+  return formatMonthlyRentInPHP(value);
+}
+
+function formatPrice(value: number | null) {
+  if (value === null) return "Not listed";
+  return formatPriceInPHP(value);
+}
+
+function formatCount(value: number | null, unit: string) {
+  return typeof value === "number" ? `${value} ${unit}` : "Not listed";
+}
+
+function formatVerificationStatus(
+  status: Property["verification_status"],
+) {
+  if (status === "verified") return "Source verified";
+  if (status === "needs_verification") return "Needs verification";
+  if (status === "incomplete") return "Incomplete";
+  return "Needs verification";
+}
+
+function formatLocation(property: Property) {
+  return [property.city, property.state, property.country].filter(Boolean).join(", ");
+}
+
+function isNewListing(createdAt: string) {
+  const created = new Date(createdAt).getTime();
+  if (Number.isNaN(created)) return false;
+  const daysOld = (Date.now() - created) / (1000 * 60 * 60 * 24);
+  return daysOld <= 14;
+}
+
+function listingVisualClasses(index: number) {
+  const styles = [
+    {
+      image: "bg-[#dedbd1]",
+      icon: "text-neutral-500",
+      badge: "success" as const,
+    },
+    {
+      image: "bg-[#e3f5ee]",
+      icon: "text-emerald-600",
+      badge: "info" as const,
+    },
+    {
+      image: "bg-[#fff1da]",
+      icon: "text-amber-700",
+      badge: "warning" as const,
+    },
+    {
+      image: "bg-[#e7e5dc]",
+      icon: "text-neutral-500",
+      badge: "premium" as const,
+    },
+  ];
+
+  return styles[index % styles.length];
 }
 
 export default function RenterDashboardPage() {
@@ -179,7 +262,12 @@ export default function RenterDashboardPage() {
   const [reviewSending, setReviewSending] = useState<Record<string, boolean>>({});
   const [reviewErrors, setReviewErrors] = useState<Record<string, string>>({});
   const [reviewSuccess, setReviewSuccess] = useState<Record<string, string>>({});
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [favoritesSending, setFavoritesSending] = useState<Record<string, boolean>>({});
+  const [contactPropertyId, setContactPropertyId] = useState<string | null>(null);
 
   const fetchProperties = async (
     client: SupabaseClient,
@@ -198,7 +286,7 @@ export default function RenterDashboardPage() {
     let query = client
       .from("properties")
       .select(
-        "id, landlord_id, title, description, property_type, city, state, country, price, deposit, advance, bedrooms, bathrooms, area_sqm, available_from, created_at, property_amenities(amenity_id, amenities(name))",
+        "id, landlord_id, title, description, property_type, city, state, country, price, deposit, advance, bedrooms, bathrooms, area_sqm, available_from, created_at, verification_status, source_note, property_images(storage_path, is_cover), property_amenities(amenity_id, amenities(name))",
       )
       .eq("status", "approved")
       .order("created_at", { ascending: false });
@@ -637,514 +725,783 @@ export default function RenterDashboardPage() {
     setReviewSending((prev) => ({ ...prev, [property.id]: false }));
   };
 
+  const onToggleFavorite = async (property: Property) => {
+    if (!renterId) {
+      setListError("You must be signed in to save rentals.");
+      return;
+    }
+
+    const client = getSupabaseClient();
+    if (!client) {
+      setListError(supabaseConfigError ?? "Supabase is not configured.");
+      return;
+    }
+
+    setFavoritesSending((prev) => ({ ...prev, [property.id]: true }));
+
+    const result = await toggleFavorite(client, property.id, renterId);
+    if (!result.success) {
+      setListError(result.error ?? "Failed to update favorite status.");
+      setFavoritesSending((prev) => ({ ...prev, [property.id]: false }));
+      return;
+    }
+
+    setFavorites((prev) => ({
+      ...prev,
+      [property.id]: result.isFavorite ?? false,
+    }));
+    setFavoritesSending((prev) => ({ ...prev, [property.id]: false }));
+  };
+
+const sortedProperties = useMemo(() => {
+    const list = [...properties];
+
+    if (sortMode === "price_asc") {
+      return list.sort(
+        (a, b) =>
+          (a.price ?? Number.POSITIVE_INFINITY) -
+          (b.price ?? Number.POSITIVE_INFINITY),
+      );
+    }
+
+    if (sortMode === "price_desc") {
+      return list.sort((a, b) => (b.price ?? -1) - (a.price ?? -1));
+    }
+
+    if (sortMode === "title_asc") {
+      return list.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    return list.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+  }, [properties, sortMode]);
+
   if (loading) {
     return (
-      <AppShell navItems={renterNavItems} title="Rental Marketplace">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <div className="space-y-3">
-            <Skeleton className="h-8 w-56" />
-            <Skeleton className="h-5 w-96 max-w-full" />
-          </div>
-          <Card>
-            <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </CardContent>
-          </Card>
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            <PropertyCardSkeleton />
-            <PropertyCardSkeleton />
-            <PropertyCardSkeleton />
+      <AppShell navItems={renterNavItems} title="Nestora">
+        <div className="mx-auto max-w-[1800px] space-y-4">
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            <Skeleton className="h-[420px] w-full" />
+            <Skeleton className="h-[420px] w-full" />
+            <Skeleton className="h-[420px] w-full" />
+            <Skeleton className="hidden h-[420px] w-full 2xl:block" />
           </div>
         </div>
       </AppShell>
-    );
+   );
   }
+
+  const contactProperty = contactPropertyId
+    ? sortedProperties.find((item) => item.id === contactPropertyId) ?? null
+    : null;
 
   return (
     <AppShell
       navItems={renterNavItems}
-      title="Rental Marketplace"
+      title="Nestora"
       topNavAction={email ? <Badge>{email}</Badge> : null}
       sidebarFooter={<LogoutButton />}
+      className="px-3 py-3 pb-5 sm:px-4 lg:px-6"
     >
-      <div className="mx-auto max-w-7xl space-y-5">
-        <PageHeader
-          eyebrow="Renter marketplace"
-          title="Browse approved rentals"
-          description="Search reviewed listings, compare property details, send inquiries, and leave reviews after contact."
-          actions={
-            <>
+      <div className="mx-auto max-w-[1800px] space-y-4">
+        {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
+
+        <form onSubmit={onSearch} aria-label="Property search" className="space-y-4">
+          {/* First row: search input, search button, map view button */}
+          <div className="rounded-lg border border-neutral-200 bg-white p-4">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_auto_auto]">
+              <label htmlFor="search" className="sr-only">
+                Search rentals
+              </label>
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="search"
+                  type="text"
+                  value={filters.search}
+                  onChange={(event) => onFilterChange("search", event.target.value)}
+                  placeholder="Search by title, address, city, or location"
+                  className="h-12 rounded-xl pl-11 text-base"
+                />
+              </div>
+              <Button type="submit" disabled={searchLoading} className="h-12 px-6">
+                {searchLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Search className="h-4 w-4" aria-hidden="true" />
+                )}
+                {searchLoading ? "Searching..." : "Search"}
+              </Button>
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => router.push("/dashboard/renter/map")}
+                className="h-12 px-6"
               >
                 <Map className="h-4 w-4" aria-hidden="true" />
-                Map
+                Map view
               </Button>
+            </div>
+          </div>
+
+{/* Second row: all working filters in one aligned row */}
+          <div className="rounded-lg border border-neutral-200 bg-white p-4">
+            <div className="flex flex-wrap items-end gap-3">
+              {/* Approved only */}
+              <Badge variant="premium" className="h-10 px-3 text-sm">
+                <Check className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                Approved only
+              </Badge>
+
+              {/* Property type */}
+              <div className="min-w-[180px] flex-1 md:flex-none md:w-[200px]">
+                <label htmlFor="propertyType" className="text-xs font-medium uppercase text-neutral-400 mb-1 block">
+                  Property type
+                </label>
+                <Select
+                  id="propertyType"
+                  value={filters.propertyType}
+                  onChange={(event) =>
+                    onFilterChange("propertyType", event.target.value)
+                  }
+                  className="h-10 w-full"
+                >
+                  <option value="">Any type</option>
+                  <option value="Apartment">Apartment</option>
+                  <option value="House">House</option>
+                  <option value="Condo">Condo</option>
+                  <option value="Townhouse">Townhouse</option>
+                  <option value="Studio">Studio</option>
+                  <option value="Room for rent">Room for rent</option>
+                </Select>
+              </div>
+
+              {/* Price range */}
+              <div className="flex gap-3 min-w-[260px] flex-1 md:flex-none md:w-[280px]">
+                <div className="flex-1">
+                  <label htmlFor="minPrice" className="text-xs font-medium uppercase text-neutral-400 mb-1 block">
+                    Min price (PHP)
+                  </label>
+                  <Input
+                    id="minPrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={filters.minPrice}
+                    onChange={(event) =>
+                      onFilterChange("minPrice", event.target.value)
+                    }
+                    placeholder="0"
+                    className="h-10 w-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="maxPrice" className="text-xs font-medium uppercase text-neutral-400 mb-1 block">
+                    Max price (PHP)
+                  </label>
+                  <Input
+                    id="maxPrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={filters.maxPrice}
+                    onChange={(event) =>
+                      onFilterChange("maxPrice", event.target.value)
+                    }
+                    placeholder="No limit"
+                    className="h-10 w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Amenities */}
+              <div className="min-w-[180px] flex-1 md:flex-none md:w-[200px]">
+                <label htmlFor="amenity" className="text-xs font-medium uppercase text-neutral-400 mb-1 block">
+                  Amenity
+                </label>
+                <Select
+                  id="amenity"
+                  value={filters.amenityId}
+                  onChange={(event) => onFilterChange("amenityId", event.target.value)}
+                  className="h-10 w-full"
+                >
+                  <option value="">Any amenity</option>
+                  {amenities.map((amenity) => (
+                    <option key={amenity.id} value={amenity.id}>
+                      {amenity.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {/* City */}
+              <div className="min-w-[180px] flex-1 md:flex-none md:w-[200px]">
+                <label htmlFor="city" className="text-xs font-medium uppercase text-neutral-400 mb-1 block">
+                  City
+                </label>
+                <Input
+                  id="city"
+                  type="text"
+                  value={filters.city}
+                  onChange={(event) => onFilterChange("city", event.target.value)}
+                  placeholder="Any city"
+                  className="h-10 w-full"
+                />
+              </div>
+
+              {/* Clear button */}
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => router.push("/dashboard/renter/recommendations")}
+                onClick={onClearFilters}
+                disabled={searchLoading}
+                className="h-10 px-5"
               >
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
-                Matches
-              </Button>
-              <Button
-                type="button"
-                onClick={() => router.push("/dashboard/renter/assistant")}
-              >
-                <Bot className="h-4 w-4" aria-hidden="true" />
-                AI Assistant
-              </Button>
-            </>
-          }
-        />
-
-        {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
-
-        <form onSubmit={onSearch} aria-label="Property search">
-          <FilterPanel
-            title="Search approved rentals"
-            description="Filter by location, type, budget, and amenities."
-            actions={
-              <>
-                <Button type="submit" disabled={searchLoading}>
-                  {searchLoading ? (
+                {searchLoading ? (
+                  <>
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Search className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  {searchLoading ? "Searching..." : "Search"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClearFilters}
-                  disabled={searchLoading}
-                >
+                    Clearing...
+                  </>
+                ) : (
                   <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                  Clear
-                </Button>
-              </>
-            }
-          >
-            <FormField label="Search" htmlFor="search">
-              <Input
-                id="search"
-                type="text"
-                value={filters.search}
-                onChange={(event) => onFilterChange("search", event.target.value)}
-                placeholder="Title, description, address, or city"
-              />
-            </FormField>
-            <FormField label="City" htmlFor="city">
-              <Input
-                id="city"
-                type="text"
-                value={filters.city}
-                onChange={(event) => onFilterChange("city", event.target.value)}
-                placeholder="Any city"
-              />
-            </FormField>
-            <FormField label="Property type" htmlFor="propertyType">
-              <Input
-                id="propertyType"
-                type="text"
-                value={filters.propertyType}
-                onChange={(event) =>
-                  onFilterChange("propertyType", event.target.value)
-                }
-                placeholder="Apartment, condo, studio"
-              />
-            </FormField>
-            <FormField label="Amenity" htmlFor="amenity">
-              <Select
-                id="amenity"
-                value={filters.amenityId}
-                onChange={(event) => onFilterChange("amenityId", event.target.value)}
-              >
-                <option value="">Any amenity</option>
-                {amenities.map((amenity) => (
-                  <option key={amenity.id} value={amenity.id}>
-                    {amenity.name}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
-            <FormField label="Min price" htmlFor="minPrice">
-              <Input
-                id="minPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                value={filters.minPrice}
-                onChange={(event) => onFilterChange("minPrice", event.target.value)}
-                placeholder="0"
-              />
-            </FormField>
-            <FormField label="Max price" htmlFor="maxPrice">
-              <Input
-                id="maxPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                value={filters.maxPrice}
-                onChange={(event) => onFilterChange("maxPrice", event.target.value)}
-                placeholder="No limit"
-              />
-            </FormField>
-          </FilterPanel>
+                )}
+                Clear
+              </Button>
+            </div>
+          </div>
         </form>
 
         <section aria-label="Approved properties" className="space-y-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight text-neutral-950">
-                Approved rentals
-              </h2>
-              <p className="text-sm leading-6 text-neutral-500">
-                Marketplace listings reviewed for renter visibility.
-              </p>
-            </div>
-            <Badge variant="success">Approved only</Badge>
-          </div>
+           <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+             <div>
+               <p className="text-sm font-semibold text-neutral-950">
+                 Showing {properties.length} approved rentals
+               </p>
+               <p className="text-sm text-neutral-500">
+                 Listing cards are prioritized for browsing, comparing, and contacting landlords.
+               </p>
+             </div>
+             <div className="flex flex-wrap items-center gap-2">
+               <label htmlFor="sortMode" className="sr-only">
+                 Sort rentals
+               </label>
+<Select
+                  id="sortMode"
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value as SortMode)}
+                  className="h-10 w-48"
+                >
+                  <option value="newest">Sort: Newest first</option>
+                  <option value="price_asc">Price low to high</option>
+                  <option value="price_desc">Price high to low</option>
+                  <option value="title_asc">Title A-Z</option>
+                </Select>
+               <Button
+                 type="button"
+                 variant="secondary"
+                 size="icon"
+                 onClick={() => setViewMode('grid')}
+                 aria-label={viewMode === 'grid' ? 'Grid view active' : 'Switch to grid view'}
+                 className={viewMode === 'grid' ? 'bg-neutral-100' : ''}
+               >
+                 <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+               </Button>
+               <Button
+                 type="button"
+                 variant="secondary"
+                 size="icon"
+                 onClick={() => setViewMode('list')}
+                 aria-label={viewMode === 'list' ? 'List view active' : 'Switch to list view'}
+                 className={viewMode === 'list' ? 'bg-neutral-100' : ''}
+               >
+                 <List className="h-4 w-4" aria-hidden="true" />
+               </Button>
+             </div>
+           </div>
 
           {searchError ? <AlertMessage variant="danger">{searchError}</AlertMessage> : null}
           {listError ? <AlertMessage variant="danger">{listError}</AlertMessage> : null}
 
-          {searchLoading ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <PropertyCardSkeleton />
-              <PropertyCardSkeleton />
-            </div>
-          ) : properties.length === 0 ? (
-            <EmptyState
-              title="No approved rentals match your filters"
-              description="Try widening your city, budget, property type, or amenity filters."
-              icon={<Compass className="h-5 w-5" aria-hidden="true" />}
-              action={
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClearFilters}
-                  disabled={searchLoading}
-                >
-                  Clear filters
-                </Button>
-              }
-            />
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {properties.map((property) => {
+           {searchLoading ? (
+             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+               <Skeleton className="h-[420px] w-full" />
+               <Skeleton className="h-[420px] w-full" />
+               <Skeleton className="h-[420px] w-full" />
+               <Skeleton className="hidden h-[420px] w-full 2xl:block" />
+             </div>
+           ) : properties.length === 0 ? (
+             <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center">
+               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+                 <Search className="h-6 w-6" aria-hidden="true" />
+               </div>
+               <h2 className="mt-5 text-xl font-semibold tracking-tight text-neutral-950">
+                 No approved rentals match this search
+               </h2>
+               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-neutral-500">
+                 Try widening the location, price, property type, or amenity filters to
+                 see more marketplace listings.
+               </p>
+               <div className="mt-6 flex justify-center">
+                 <Button
+                   type="button"
+                   variant="secondary"
+                   onClick={onClearFilters}
+                   disabled={searchLoading}
+                 >
+                   Clear filters
+                 </Button>
+               </div>
+             </div>
+           ) : (
+             <div className={viewMode === 'grid' 
+               ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' 
+               : 'flex flex-col gap-4'}>
+               {sortedProperties.map((property, index) => {
                 const description = property.description?.trim();
-                const preview = description
-                  ? description.slice(0, 160)
-                  : "No description provided.";
+                const preview = description || "No description provided.";
                 const amenityNames = (property.property_amenities ?? [])
                   .map((item) => item.amenities?.name)
                   .filter((name): name is string => Boolean(name));
 
                 const inquiriesForProperty =
                   propertyInquiries[property.id] ?? [];
-                const reviewsForProperty = propertyReviews[property.id] ?? [];
-                const hasInquiry = inquiriesForProperty.length > 0;
-                const inquiryDraft = inquiryMessages[property.id] ?? "";
-                const reviewDraft = reviewDrafts[property.id] ?? {
-                  rating: "",
-                  comment: "",
-                };
+                const visual = listingVisualClasses(index);
+                const newListing = isNewListing(property.created_at);
 
-                return (
-                  <PropertyCard
-                    key={property.id}
-                    title={property.title}
-                    city={property.city}
-                    address={[property.state, property.country]
-                      .filter(Boolean)
-                      .join(", ")}
-                    propertyType={property.property_type || "Not specified"}
-                    monthlyRent={property.price}
-                    bedrooms={property.bedrooms}
-                    bathrooms={property.bathrooms}
-                    amenities={amenityNames}
-                    description={preview}
-                    status="approved"
-                    meta={
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-xs font-medium uppercase text-neutral-400">
-                            Deposit
-                          </p>
-                          <p className="mt-1 font-medium text-neutral-800">
-                            {property.deposit}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium uppercase text-neutral-400">
-                            Advance
-                          </p>
-                          <p className="mt-1 font-medium text-neutral-800">
-                            {property.advance}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium uppercase text-neutral-400">
-                            Area
-                          </p>
-                          <p className="mt-1 font-medium text-neutral-800">
-                            {property.area_sqm} sqm
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium uppercase text-neutral-400">
-                            Available
-                          </p>
-                          <p className="mt-1 font-medium text-neutral-800">
-                            {property.available_from
-                              ? new Date(property.available_from).toLocaleDateString()
-                              : "Not set"}
-                          </p>
-                        </div>
+return (
+                    <article
+                      key={property.id}
+                      className={viewMode === 'grid'
+                        ? "group flex h-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-neutral-300"
+                        : "grid grid-cols-1 overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-neutral-300 md:grid-cols-[220px_minmax(0,1fr)_190px]"}
+                    >
+                      <div className={viewMode === 'grid'
+                        ? `relative h-52 shrink-0 ${visual.image}`
+                        : `relative h-52 ${visual.image} md:h-full md:min-h-[280px]`}>
+                        {(() => {
+                          const cover = property.property_images?.find((img) => img.is_cover) ?? property.property_images?.[0];
+                          if (cover?.storage_path) {
+                            return (
+                              <img
+                                src={cover.storage_path}
+                                alt={property.title}
+                                className="h-full w-full object-cover"
+                              />
+                            );
+                          }
+                          return (
+                            <div className="flex h-full items-center justify-center">
+                              <div className="text-center">
+                                <Building2 className={`h-10 w-10 ${visual.icon}`} aria-hidden="true" />
+                                <p className="mt-1 text-xs text-neutral-500">No photo</p>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
-                    }
-                    actions={
-                      <div className="w-full space-y-5">
-                        <section aria-label="Inquiry" className="space-y-3">
+
+                      <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-4">
+                        <div className="min-w-0 space-y-2">
+                        <div className="flex flex-wrap gap-1">
+                          {newListing ? (
+                            <Badge variant="success" className="px-1.5 py-0.5 text-xs">
+                              New
+                            </Badge>
+                          ) : null}
+                          <Badge variant={visual.badge} className="px-1.5 py-0.5 text-xs">
+                            Approved
+                          </Badge>
+                          <Badge className="px-1.5 py-0.5 text-xs">
+                            {formatVerificationStatus(property.verification_status)}
+                          </Badge>
+                        </div>
+                        <h2 className="line-clamp-2 min-h-[3.5rem] text-lg font-semibold leading-7 tracking-tight text-neutral-950">
+                          {property.title}
+                        </h2>
+                        <p className="flex items-center gap-1.5 text-sm text-neutral-500">
+                          <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="line-clamp-1">
+                            {formatLocation(property) || "Location unavailable"}
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap gap-3 text-sm font-medium text-neutral-600">
+                          <span className="inline-flex items-center gap-1.5">
+                            <BedDouble className="h-4 w-4" aria-hidden="true" />
+                            {formatCount(property.bedrooms, "bed")}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Bath className="h-4 w-4" aria-hidden="true" />
+                            {formatCount(property.bathrooms, "bath")}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <Ruler className="h-4 w-4" aria-hidden="true" />
+                            {formatCount(property.area_sqm, "sqm")}
+                          </span>
+                        </div>
+                        <div className="relative min-h-[4.5rem]">
+                          <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-neutral-500">
+                            {preview}
+                          </p>
+                        </div>
+                        <div className="flex min-h-7 flex-wrap gap-2">
+                          <Badge>{property.property_type || "Rental"}</Badge>
+                          {amenityNames.slice(0, 2).map((amenity) => (
+                            <Badge key={amenity}>{amenity}</Badge>
+                          ))}
+                          {amenityNames.length > 2 ? (
+                            <Badge>+{amenityNames.length - 2}</Badge>
+                          ) : null}
+                        </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-2 gap-3 border-t border-neutral-100 pt-3 text-sm">
                           <div>
-                            <h3 className="text-sm font-semibold text-neutral-950">
-                              Send an inquiry
-                            </h3>
-                            <p className="text-sm leading-6 text-neutral-500">
-                              Ask about availability, lease terms, or viewing times.
+                            <p className="text-xs font-medium uppercase text-neutral-400">
+                              Deposit
+                            </p>
+                            <p className="mt-1 font-medium text-neutral-800">
+                              {formatPrice(property.deposit)}
                             </p>
                           </div>
-                          {inquiryErrors[property.id] ? (
-                            <AlertMessage variant="danger">
-                              {inquiryErrors[property.id]}
-                            </AlertMessage>
-                          ) : null}
-                          {inquirySuccess[property.id] ? (
-                            <AlertMessage variant="success">
-                              {inquirySuccess[property.id]}
-                            </AlertMessage>
-                          ) : null}
-                          <FormField label="Message" htmlFor={`inquiry-${property.id}`}>
-                            <Textarea
-                              id={`inquiry-${property.id}`}
-                              value={inquiryDraft}
-                              onChange={(event) =>
-                                onInquiryMessageChange(
-                                  property.id,
-                                  event.target.value,
-                                )
-                              }
-                              rows={3}
-                              placeholder="Ask about availability, lease terms, or schedule a viewing."
-                            />
-                          </FormField>
+                          <div>
+                            <p className="text-xs font-medium uppercase text-neutral-400">
+                              Advance
+                            </p>
+                            <p className="mt-1 font-medium text-neutral-800">
+                              {formatPrice(property.advance)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium uppercase text-neutral-400">
+                              Available
+                            </p>
+                            <p className="mt-1 font-medium text-neutral-800">
+                              {property.available_from
+                                ? new Date(property.available_from).toLocaleDateString()
+                                : "Not set"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium uppercase text-neutral-400">
+                              Interest
+                            </p>
+                            <p className="mt-1 font-medium text-neutral-800">
+                              {inquiriesForProperty.length} inquiries
+                            </p>
+                          </div>
+                        </div>
+
+                        {viewMode === 'grid' ? (
+                          <div className="mt-auto space-y-3 pt-4">
+                            <p className="text-base font-semibold text-neutral-950">
+                              {formatRent(property.price)}
+                            </p>
+                            <div className="grid gap-2">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="w-full"
+                                onClick={() => setContactPropertyId(property.id)}
+                              >
+                                <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
+                                View details
+                              </Button>
+                              <button
+                                type="button"
+                                disabled={favoritesSending[property.id] ?? false}
+                                onClick={() => onToggleFavorite(property)}
+                                title={favorites[property.id] ? "Remove from saved" : "Add to saved"}
+                                aria-label={favorites[property.id] ? "Remove from saved" : "Add to saved"}
+                                className={`inline-flex min-h-10 w-full items-center justify-center gap-1 rounded-full border px-2.5 py-1.5 text-sm font-medium shadow-sm transition-colors ${
+                                  favorites[property.id]
+                                    ? "border-red-200 bg-red-50/90 text-red-700"
+                                    : "border-neutral-200 bg-white/90 text-neutral-600 hover:border-red-200 hover:bg-red-50/60 hover:text-red-700"
+                                } ${favoritesSending[property.id] ? "cursor-wait" : "cursor-pointer"}`}
+                              >
+                                <Heart
+                                  className={`h-4 w-4 ${favorites[property.id] ? "fill-current" : ""}`}
+                                  aria-hidden="true"
+                                />
+                                {favoritesSending[property.id] ? "..." : favorites[property.id] ? "Saved" : "Save"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
                           <Button
                             type="button"
                             variant="secondary"
-                            onClick={() => onSendInquiry(property)}
-                            disabled={Boolean(inquirySending[property.id])}
-                            className="w-full"
+                            className="mt-auto w-full"
+                            onClick={() => setContactPropertyId(property.id)}
                           >
-                            {inquirySending[property.id] ? (
-                              <Loader2
-                                className="h-4 w-4 animate-spin"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <MessageSquare
-                                className="h-4 w-4"
-                                aria-hidden="true"
-                              />
-                            )}
-                            {inquirySending[property.id]
-                              ? "Sending inquiry..."
-                              : "Send inquiry"}
+                            <MessageSquare className="mr-2 h-4 w-4" aria-hidden="true" />
+                            View details
                           </Button>
-                        </section>
+                        )}
+                       </div>
 
-                        <section
-                          aria-label="Reviews"
-                          className="space-y-3 border-t border-neutral-100 pt-5"
-                        >
-                          <div>
-                            <h3 className="text-sm font-semibold text-neutral-950">
-                              Reviews
-                            </h3>
-                            <p className="text-sm leading-6 text-neutral-500">
-                              You can review this listing after sending an inquiry.
-                            </p>
-                          </div>
-                          {!hasInquiry ? (
-                            <AlertMessage variant="info">
-                              Send an inquiry for this property first before leaving
-                              a review.
-                            </AlertMessage>
-                          ) : null}
-                          {reviewErrors[property.id] ? (
-                            <AlertMessage variant="danger">
-                              {reviewErrors[property.id]}
-                            </AlertMessage>
-                          ) : null}
-                          {reviewSuccess[property.id] ? (
-                            <AlertMessage variant="success">
-                              {reviewSuccess[property.id]}
-                            </AlertMessage>
-                          ) : null}
-                          <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
-                            <FormField label="Rating" htmlFor={`rating-${property.id}`}>
-                              <Select
-                                id={`rating-${property.id}`}
-                                value={reviewDraft.rating}
-                                onChange={(event) =>
-                                  onReviewDraftChange(
-                                    property.id,
-                                    "rating",
-                                    event.target.value,
-                                  )
-                                }
-                                disabled={!hasInquiry}
-                              >
-                                <option value="">Select</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                              </Select>
-                            </FormField>
-                            <FormField label="Comment" htmlFor={`comment-${property.id}`}>
-                              <Textarea
-                                id={`comment-${property.id}`}
-                                value={reviewDraft.comment}
-                                onChange={(event) =>
-                                  onReviewDraftChange(
-                                    property.id,
-                                    "comment",
-                                    event.target.value,
-                                  )
-                                }
-                                rows={3}
-                                placeholder="Share your experience (optional)."
-                                disabled={!hasInquiry}
-                              />
-                            </FormField>
-                          </div>
-                          <Button
+                      {viewMode === 'list' ? (
+                        <div className="flex flex-col justify-between gap-4 border-t border-neutral-100 p-3 sm:p-4 md:border-l md:border-t-0">
+                          <p className="text-base font-semibold text-neutral-950">
+                            {formatRent(property.price)}
+                          </p>
+                          <button
                             type="button"
-                            onClick={() => onSubmitReview(property)}
-                            disabled={
-                              !hasInquiry || Boolean(reviewSending[property.id])
-                            }
-                            className="w-full"
+                            disabled={favoritesSending[property.id] ?? false}
+                            onClick={() => onToggleFavorite(property)}
+                            title={favorites[property.id] ? "Remove from saved" : "Add to saved"}
+                            aria-label={favorites[property.id] ? "Remove from saved" : "Add to saved"}
+                            className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-full border px-2.5 py-1.5 text-sm font-medium shadow-sm transition-colors ${
+                              favorites[property.id]
+                                ? "border-red-200 bg-red-50/90 text-red-700"
+                                : "border-neutral-200 bg-white/90 text-neutral-600 hover:border-red-200 hover:bg-red-50/60 hover:text-red-700"
+                            } ${favoritesSending[property.id] ? "cursor-wait" : "cursor-pointer"}`}
                           >
-                            {reviewSending[property.id] ? (
-                              <Loader2
-                                className="h-4 w-4 animate-spin"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <Star className="h-4 w-4" aria-hidden="true" />
-                            )}
-                            {reviewSending[property.id]
-                              ? "Submitting review..."
-                              : "Submit review"}
-                          </Button>
+                            <Heart
+                              className={`h-4 w-4 ${favorites[property.id] ? "fill-current" : ""}`}
+                              aria-hidden="true"
+                            />
+                            {favoritesSending[property.id] ? "..." : favorites[property.id] ? "Saved" : "Save"}
+                          </button>
+                        </div>
+                      ) : null}
+                      </article>
+                    );
+                })}
+              </div>
+            )}
+          </section>
 
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium text-neutral-900">
-                              Recent reviews
-                            </p>
-                            {reviewsForProperty.length === 0 ? (
-                              <p className="rounded-md border border-dashed border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-500">
-                                No reviews yet.
-                              </p>
-                            ) : (
-                              <ul className="space-y-2">
-                                {reviewsForProperty.map((review) => (
-                                  <li
-                                    key={review.id}
-                                    className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm"
-                                  >
-                                    <div className="flex items-center justify-between gap-3">
-                                      <span className="font-medium text-neutral-950">
-                                        {review.rating}/5
-                                      </span>
-                                      <span className="text-xs text-neutral-500">
-                                        {new Date(
-                                          review.created_at,
-                                        ).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                    {review.comment ? (
-                                      <p className="mt-2 leading-6 text-neutral-600">
-                                        {review.comment}
-                                      </p>
-                                    ) : null}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        </section>
+          <section
+            id="my-inquiries"
+            aria-label="Marketplace summary"
+            className="grid gap-3 border-t border-neutral-200 pt-4 md:grid-cols-3"
+          >
+            {[
+              {
+                label: "Approved rentals",
+                value: properties.length,
+                icon: <Building2 className="h-4 w-4" aria-hidden="true" />,
+              },
+              {
+                label: "Your inquiries",
+                value: Object.values(propertyInquiries).reduce(
+                  (total, items) => total + items.length,
+                  0,
+                ),
+                icon: <MessageSquare className="h-4 w-4" aria-hidden="true" />,
+              },
+              {
+                label: "Reviewed",
+                value: Object.values(propertyReviews).filter(
+                  (items) => items.length > 0,
+                ).length,
+                icon: <Star className="h-4 w-4" aria-hidden="true" />,
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3"
+              >
+                <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-neutral-600">
+                  {stat.icon}
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase text-neutral-400">
+                    {stat.label}
+                  </p>
+                  <p className="text-lg font-semibold tracking-tight text-neutral-950">
+                    {stat.value}
+                  </p>
+                </div>
+              </div>
+            ))}
+</section>
+        </div>
+
+        {contactProperty && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50" onClick={() => setContactPropertyId(null)} />
+            <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+              <div className="flex flex-shrink-0 items-start justify-between gap-3 border-b border-neutral-200 p-6">
+                <div>
+                  <p className="text-xs font-medium uppercase text-neutral-400">Property</p>
+                  <h2 className="text-lg font-semibold text-neutral-950">{contactProperty.title}</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setContactPropertyId(null)}
+                  className="rounded-full p-1 text-neutral-500 hover:bg-neutral-100"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-5">
+                  <section aria-label="Property details" className="space-y-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-neutral-950">Property details</h3>
+                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-neutral-600">
+                        {contactProperty.description || "No description provided."}
+                      </p>
+                    </div>
+                    <div className="grid gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-medium uppercase text-neutral-400">Location</p>
+                        <p className="mt-1 font-medium text-neutral-800">
+                          {formatLocation(contactProperty) || "Location unavailable"}
+                        </p>
                       </div>
-                    }
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
+                      <div>
+                        <p className="text-xs font-medium uppercase text-neutral-400">Monthly rent</p>
+                        <p className="mt-1 font-medium text-neutral-800">
+                          {formatRent(contactProperty.price)}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
 
-        <section aria-label="Marketplace summary" className="grid gap-3 md:grid-cols-3">
-          {[
-            {
-              label: "Approved rentals",
-              value: properties.length,
-              icon: <Building2 className="h-4 w-4" aria-hidden="true" />,
-            },
-            {
-              label: "Your inquiries",
-              value: Object.values(propertyInquiries).reduce(
-                (total, items) => total + items.length,
-                0,
-              ),
-              icon: <MessageSquare className="h-4 w-4" aria-hidden="true" />,
-            },
-            {
-              label: "Reviewed",
-              value: Object.values(propertyReviews).filter(
-                (items) => items.length > 0,
-              ).length,
-              icon: <Star className="h-4 w-4" aria-hidden="true" />,
-            },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3"
-            >
-              <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-neutral-600">
-                {stat.icon}
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase text-neutral-400">
-                  {stat.label}
-                </p>
-                <p className="text-lg font-semibold tracking-tight text-neutral-950">
-                  {stat.value}
-                </p>
+                  <section aria-label="Inquiry" className="space-y-3 border-t border-neutral-100 pt-5">
+                    <div>
+                      <h3 className="text-sm font-semibold text-neutral-950">Send an inquiry</h3>
+                      <p className="text-sm leading-6 text-neutral-500">Ask about availability, lease terms, or viewing times.</p>
+                    </div>
+                    {inquiryErrors[contactProperty.id] ? (
+                      <AlertMessage variant="danger">{inquiryErrors[contactProperty.id]}</AlertMessage>
+                    ) : null}
+                    {inquirySuccess[contactProperty.id] ? (
+                      <AlertMessage variant="success">{inquirySuccess[contactProperty.id]}</AlertMessage>
+                    ) : null}
+                    <FormField label="Message" htmlFor={`modal-inquiry-${contactProperty.id}`}>
+                      <Textarea
+                        id={`modal-inquiry-${contactProperty.id}`}
+                        value={inquiryMessages[contactProperty.id] ?? ""}
+                        onChange={(event) =>
+                          onInquiryMessageChange(contactProperty.id, event.target.value)
+                        }
+                        rows={4}
+                        placeholder="Ask about availability, lease terms, or schedule a viewing."
+                      />
+                    </FormField>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => onSendInquiry(contactProperty)}
+                      disabled={Boolean(inquirySending[contactProperty.id])}
+                      className="w-full"
+                    >
+                      {inquirySending[contactProperty.id] ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                          Sending inquiry...
+                        </>
+                      ) : (
+                        <>
+                          <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                          Send inquiry
+                        </>
+                      )}
+                    </Button>
+                  </section>
+
+                  <section aria-label="Reviews" className="space-y-3 border-t border-neutral-100 pt-5">
+                    <div>
+                      <h3 className="text-sm font-semibold text-neutral-950">Reviews</h3>
+                      <p className="text-sm leading-6 text-neutral-500">You can review this listing after sending an inquiry.</p>
+                    </div>
+                    {(propertyInquiries[contactProperty.id] ?? []).length === 0 ? (
+                      <AlertMessage variant="info">Send an inquiry for this property first before leaving a review.</AlertMessage>
+                    ) : null}
+                    {reviewErrors[contactProperty.id] ? (
+                      <AlertMessage variant="danger">{reviewErrors[contactProperty.id]}</AlertMessage>
+                    ) : null}
+                    {reviewSuccess[contactProperty.id] ? (
+                      <AlertMessage variant="success">{reviewSuccess[contactProperty.id]}</AlertMessage>
+                    ) : null}
+                    <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+                      <FormField label="Rating" htmlFor={`modal-rating-${contactProperty.id}`}>
+                        <Select
+                          id={`modal-rating-${contactProperty.id}`}
+                          value={reviewDrafts[contactProperty.id]?.rating ?? ""}
+                          onChange={(event) =>
+                            onReviewDraftChange(contactProperty.id, "rating", event.target.value)
+                          }
+                          disabled={(propertyInquiries[contactProperty.id] ?? []).length === 0}
+                        >
+                          <option value="">Select</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </Select>
+                      </FormField>
+                      <FormField label="Comment" htmlFor={`modal-comment-${contactProperty.id}`}>
+                        <Textarea
+                          id={`modal-comment-${contactProperty.id}`}
+                          value={reviewDrafts[contactProperty.id]?.comment ?? ""}
+                          onChange={(event) =>
+                            onReviewDraftChange(contactProperty.id, "comment", event.target.value)
+                          }
+                          rows={3}
+                          placeholder="Share your experience (optional)."
+                          disabled={(propertyInquiries[contactProperty.id] ?? []).length === 0}
+                        />
+                      </FormField>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => onSubmitReview(contactProperty)}
+                      disabled={(propertyInquiries[contactProperty.id] ?? []).length === 0 || Boolean(reviewSending[contactProperty.id])}
+                      className="w-full"
+                    >
+                      {reviewSending[contactProperty.id] ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                          Submitting review...
+                        </>
+                      ) : (
+                        <>
+                          <Star className="h-4 w-4" aria-hidden="true" />
+                          Submit review
+                        </>
+                      )}
+                    </Button>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-neutral-900">Recent reviews</p>
+                      {(propertyReviews[contactProperty.id] ?? []).length === 0 ? (
+                        <p className="rounded-md border border-dashed border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-500">No reviews yet.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {(propertyReviews[contactProperty.id] ?? []).map((review) => (
+                            <li key={review.id} className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="font-medium text-neutral-950">{review.rating}/5</span>
+                                <span className="text-xs text-neutral-500">
+                                  {new Date(review.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                              {review.comment ? (
+                                <p className="mt-2 leading-6 text-neutral-600">{review.comment}</p>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </section>
+                </div>
               </div>
             </div>
-          ))}
-        </section>
-      </div>
-    </AppShell>
-  );
-}
+          </div>
+        )}
+      </AppShell>
+    );
+  }

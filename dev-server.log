@@ -1,0 +1,414 @@
+
+> web@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://127.0.0.1:3000
+- Network:       http://127.0.0.1:3000
+- Environments: .env.local
+✓ Ready in 5.0s
+Creating turbopack project { dir: 'C:\\Users\\PC\\ideaas\\web', testMode: true }
+
+○ Compiling /login ...
+✓ Finished writing to filesystem cache in 11.0s
+ GET /login 200 in 43s (next.js: 42s, application-code: 1017ms)
+ GET / 200 in 2.9s (next.js: 2.1s, application-code: 787ms)
+○ Compiling /dashboard/renter/map ...
+ GET /dashboard/renter/map 200 in 10.6s (next.js: 9.6s, proxy.ts: 117ms, application-code: 887ms)
+ GET /login 200 in 241ms (next.js: 29ms, application-code: 212ms)
+ GET /dashboard/renter/map 200 in 129ms (next.js: 10ms, proxy.ts: 14ms, application-code: 105ms)
+ GET /dashboard/renter/map 200 in 38ms (next.js: 13ms, proxy.ts: 7ms, application-code: 18ms)
+ GET /dashboard/renter/map 200 in 67ms (next.js: 6ms, proxy.ts: 11ms, application-code: 49ms)
+✓ Compiled in 1292ms
+ GET /dashboard/renter/map 200 in 1330ms (next.js: 324ms, proxy.ts: 780ms, application-code: 226ms)
+✓ Compiled in 1193ms
+ GET /dashboard/renter/map 200 in 313ms (next.js: 162ms, proxy.ts: 45ms, application-code: 106ms)
+✓ Compiled in 397ms
+ GET /dashboard/renter/map 200 in 431ms (next.js: 204ms, proxy.ts: 112ms, application-code: 115ms)
+✓ Compiled in 351ms
+ GET /dashboard/renter/map 200 in 366ms (next.js: 209ms, proxy.ts: 42ms, application-code: 115ms)
+ GET /login 200 in 939ms (next.js: 78ms, application-code: 861ms)
+✓ Compiled in 703ms
+ GET /login 200 in 544ms (next.js: 359ms, application-code: 185ms)
+ GET /dashboard/renter/map 200 in 468ms (next.js: 187ms, proxy.ts: 199ms, application-code: 82ms)
+ GET /login 200 in 359ms (next.js: 6ms, application-code: 352ms)
+ GET /dashboard/renter/map 200 in 371ms (next.js: 16ms, proxy.ts: 5ms, application-code: 350ms)
+ GET /dashboard/renter/map 200 in 779ms (next.js: 37ms, proxy.ts: 158ms, application-code: 583ms)
+✓ Compiled in 945ms
+ GET /login 200 in 688ms (next.js: 204ms, application-code: 483ms)
+ GET /dashboard/renter/map 200 in 397ms (next.js: 183ms, proxy.ts: 108ms, application-code: 105ms)
+✓ Compiled in 283ms
+ GET /login 200 in 775ms (next.js: 378ms, application-code: 397ms)
+ GET /dashboard/renter/map 200 in 260ms (next.js: 154ms, proxy.ts: 40ms, application-code: 66ms)
+ GET /login 200 in 386ms (next.js: 7ms, application-code: 379ms)
+ GET /dashboard/renter/map 200 in 251ms (next.js: 11ms, proxy.ts: 5ms, application-code: 234ms)
+  Reload env: .env.local
+ GET /login 200 in 992ms (next.js: 553ms, application-code: 438ms)
+ GET /dashboard/renter/map 200 in 306ms (next.js: 39ms, proxy.ts: 146ms, application-code: 121ms)
+  Reload env: .env.local
+ GET /login 200 in 774ms (next.js: 462ms, application-code: 312ms)
+ GET /dashboard/renter/map 200 in 192ms (next.js: 25ms, proxy.ts: 40ms, application-code: 127ms)
+  Reload env: .env.local
+ GET /login 200 in 534ms (next.js: 145ms, application-code: 389ms)
+ GET /dashboard/renter/map 200 in 278ms (next.js: 61ms, proxy.ts: 116ms, application-code: 101ms)
+  Reload env: .env.local
+ GET /login 200 in 364ms (next.js: 116ms, application-code: 248ms)
+ GET /dashboard/renter/map 200 in 137ms (next.js: 31ms, proxy.ts: 47ms, application-code: 59ms)
+  Reload env: .env.local
+ GET /login 200 in 238ms (next.js: 97ms, application-code: 141ms)
+ GET /dashboard/renter/map 200 in 194ms (next.js: 37ms, proxy.ts: 81ms, application-code: 76ms)
+  Reload env: .env.local
+ GET /login 200 in 487ms (next.js: 205ms, application-code: 283ms)
+ GET /dashboard/renter/map 200 in 188ms (next.js: 33ms, proxy.ts: 88ms, application-code: 67ms)
+ GET /dashboard/renter/map 200 in 730ms (next.js: 29ms, proxy.ts: 61ms, application-code: 640ms)
+○ Compiling /dashboard/renter ...
+ GET /dashboard/renter?property=20000000-0000-4000-8000-000000000004 200 in 6.6s (next.js: 6.3s, proxy.ts: 5ms, application-code: 223ms)
+ GET /dashboard/renter/map 200 in 71ms (next.js: 8ms, proxy.ts: 5ms, application-code: 58ms)
+ GET /dashboard/renter/map 200 in 383ms (next.js: 46ms, proxy.ts: 73ms, application-code: 264ms)
+✓ Compiled in 4.1s
+ GET /login 200 in 4.5s (next.js: 1383ms, application-code: 3.1s)
+ GET /dashboard/renter/map 200 in 5.6s (next.js: 3.8s, proxy.ts: 1031ms, application-code: 688ms)
+ GET /login 200 in 2.4s (next.js: 113ms, application-code: 2.3s)
+ GET /login 200 in 817ms (next.js: 18ms, application-code: 799ms)
+ GET /login 200 in 603ms (next.js: 14ms, application-code: 590ms)
+ GET /dashboard/renter 200 in 236ms (next.js: 43ms, proxy.ts: 14ms, application-code: 179ms)
+ GET /dashboard/renter/map 200 in 155ms (next.js: 17ms, proxy.ts: 10ms, application-code: 128ms)
+ GET /dashboard/renter/map 200 in 824ms (next.js: 18ms, proxy.ts: 14ms, application-code: 792ms)
+✓ Compiled in 1769ms
+ GET /login 200 in 1436ms (next.js: 402ms, application-code: 1034ms)
+ GET /dashboard/renter/map 200 in 899ms (next.js: 449ms, proxy.ts: 167ms, application-code: 282ms)
+ GET /dashboard/renter 200 in 659ms (next.js: 102ms, proxy.ts: 27ms, application-code: 530ms)
+ GET /login 200 in 321ms (next.js: 14ms, application-code: 307ms)
+ GET /dashboard/renter/map 200 in 96ms (next.js: 16ms, proxy.ts: 8ms, application-code: 72ms)
+ GET /dashboard/renter/map 200 in 2.3s (next.js: 66ms, proxy.ts: 48ms, application-code: 2.2s)
+ GET /login 200 in 282ms (next.js: 16ms, application-code: 266ms)
+ GET /dashboard/renter 200 in 237ms (next.js: 36ms, proxy.ts: 116ms, application-code: 85ms)
+ GET /login 200 in 959ms (next.js: 96ms, application-code: 864ms)
+ GET /login 200 in 292ms (next.js: 6ms, application-code: 286ms)
+ GET /dashboard/renter/map 200 in 234ms (next.js: 38ms, proxy.ts: 12ms, application-code: 184ms)
+✓ Compiled in 1871ms
+ GET /dashboard/renter/map 200 in 2.5s (next.js: 648ms, proxy.ts: 739ms, application-code: 1080ms)
+ GET /dashboard/renter 200 in 851ms (next.js: 433ms, proxy.ts: 83ms, application-code: 334ms)
+ GET /login 200 in 1632ms (next.js: 169ms, application-code: 1463ms)
+ GET /dashboard/renter/map 200 in 1503ms (next.js: 14ms, proxy.ts: 5ms, application-code: 1485ms)
+✓ Compiled in 13.7s
+ GET /dashboard/renter/map 200 in 1800ms (next.js: 1031ms, proxy.ts: 268ms, application-code: 501ms)
+ GET /dashboard/renter/map 200 in 497ms (next.js: 28ms, proxy.ts: 31ms, application-code: 438ms)
+ GET /dashboard/renter/map 200 in 241ms (next.js: 32ms, proxy.ts: 20ms, application-code: 189ms)
+ GET /dashboard/renter 200 in 521ms (next.js: 261ms, proxy.ts: 10ms, application-code: 250ms)
+ GET /dashboard/renter 200 in 120ms (next.js: 16ms, proxy.ts: 5ms, application-code: 99ms)
+ GET /dashboard/renter 200 in 127ms (next.js: 14ms, proxy.ts: 14ms, application-code: 98ms)
+✓ Compiled in 1149ms
+ GET /dashboard/renter/map 200 in 2.6s (next.js: 875ms, proxy.ts: 142ms, application-code: 1575ms)
+ GET /dashboard/renter 200 in 1429ms (next.js: 985ms, proxy.ts: 62ms, application-code: 382ms)
+✓ Compiled in 1538ms
+ GET /dashboard/renter/map 200 in 2.7s (next.js: 499ms, proxy.ts: 219ms, application-code: 1982ms)
+ GET /dashboard/renter 200 in 1832ms (next.js: 1102ms, proxy.ts: 129ms, application-code: 601ms)
+✓ Compiled in 1196ms
+ GET /dashboard/renter/map 200 in 2.3s (next.js: 818ms, proxy.ts: 898ms, application-code: 551ms)
+ GET /dashboard/renter 200 in 230ms (next.js: 59ms, proxy.ts: 33ms, application-code: 138ms)
+✓ Compiled in 1027ms
+ GET /dashboard/renter/map 200 in 1786ms (next.js: 832ms, proxy.ts: 351ms, application-code: 603ms)
+ GET /dashboard/renter 200 in 1485ms (next.js: 756ms, proxy.ts: 48ms, application-code: 681ms)
+ GET /login 200 in 2.8s (next.js: 555ms, application-code: 2.2s)
+ GET /dashboard/renter/map 200 in 1711ms (next.js: 15ms, proxy.ts: 7ms, application-code: 1689ms)
+✓ Compiled in 2.2s
+ GET /dashboard/renter/map 200 in 3.0s (next.js: 534ms, proxy.ts: 243ms, application-code: 2.2s)
+ GET /dashboard/renter 200 in 1810ms (next.js: 965ms, proxy.ts: 47ms, application-code: 798ms)
+ GET /dashboard/renter?property=20000000-0000-4000-8000-000000000002 200 in 2.5s (next.js: 64ms, proxy.ts: 84ms, application-code: 2.4s)
+✓ Compiled in 1451ms
+ GET /dashboard/renter?property=20000000-0000-4000-8000-000000000002 200 in 2.1s (next.js: 484ms, proxy.ts: 430ms, application-code: 1161ms)
+ GET /dashboard/renter 200 in 999ms (next.js: 132ms, proxy.ts: 102ms, application-code: 765ms)
+✓ Compiled in 632ms
+ GET /dashboard/renter?property=20000000-0000-4000-8000-000000000002 200 in 886ms (next.js: 533ms, proxy.ts: 105ms, application-code: 248ms)
+ GET /dashboard/renter 200 in 105ms (next.js: 16ms, proxy.ts: 14ms, application-code: 75ms)
+ GET /dashboard/renter/map 200 in 2.5s (next.js: 199ms, proxy.ts: 5ms, application-code: 2.3s)
+✓ Compiled in 952ms
+ GET /dashboard/renter/map 200 in 1604ms (next.js: 565ms, proxy.ts: 337ms, application-code: 701ms)
+ GET /dashboard/renter 200 in 483ms (next.js: 217ms, proxy.ts: 32ms, application-code: 234ms)
+ GET /dashboard/renter/map 200 in 2.1s (next.js: 17ms, proxy.ts: 84ms, application-code: 1967ms)
+✓ Compiled in 4.1s
+ GET /dashboard/renter/map 200 in 8.2s (next.js: 3.9s, proxy.ts: 1736ms, application-code: 2.5s)
+ GET /dashboard/renter 200 in 4.5s (next.js: 1460ms, proxy.ts: 35ms, application-code: 3.0s)
+✓ Compiled in 3.1s
+ GET /dashboard/renter/map 200 in 5.4s (next.js: 2.4s, proxy.ts: 1035ms, application-code: 1937ms)
+ GET /dashboard/renter 200 in 2.9s (next.js: 1181ms, proxy.ts: 34ms, application-code: 1735ms)
+✓ Compiled in 2.3s
+ GET /dashboard/renter/map 200 in 4.8s (next.js: 2.1s, proxy.ts: 599ms, application-code: 2.1s)
+ GET /dashboard/renter 200 in 1788ms (next.js: 1167ms, proxy.ts: 21ms, application-code: 601ms)
+ GET /dashboard/renter/map 200 in 1532ms (next.js: 201ms, proxy.ts: 106ms, application-code: 1225ms)
+ GET /dashboard/renter/map 200 in 1698ms (next.js: 18ms, proxy.ts: 17ms, application-code: 1663ms)
+ GET /dashboard/renter/map 200 in 942ms (next.js: 31ms, proxy.ts: 52ms, application-code: 859ms)
+ GET /dashboard/renter 200 in 1435ms (next.js: 163ms, proxy.ts: 202ms, application-code: 1070ms)
+✓ Compiled in 1218ms
+ GET /dashboard/renter 200 in 2.1s (next.js: 408ms, proxy.ts: 158ms, application-code: 1508ms)
+ GET /dashboard/renter/map 200 in 1390ms (next.js: 915ms, proxy.ts: 54ms, application-code: 421ms)
+✓ Compiled in 1312ms
+ GET /login 200 in 1998ms (next.js: 133ms, application-code: 1865ms)
+ GET /dashboard/renter/map 200 in 466ms (next.js: 31ms, proxy.ts: 16ms, application-code: 419ms)
+✓ Compiled in 2.4s
+ GET /dashboard/renter/map 200 in 5.2s (next.js: 2.6s, proxy.ts: 1854ms, application-code: 764ms)
+ GET /dashboard/renter 200 in 1549ms (next.js: 617ms, proxy.ts: 18ms, application-code: 914ms)
+✓ Compiled in 2.3s
+ GET /dashboard/renter/map 200 in 3.6s (next.js: 1353ms, proxy.ts: 815ms, application-code: 1396ms)
+ GET /dashboard/renter 200 in 230ms (next.js: 48ms, proxy.ts: 16ms, application-code: 166ms)
+ GET /dashboard/renter/map 200 in 4.9s (next.js: 734ms, proxy.ts: 334ms, application-code: 3.8s)
+○ Compiling /_error ...
+✓ Compiled in 45.9s
+✓ Finished writing to filesystem cache in 11.3s
+ GET /dashboard/renter/map 500 in 62s (next.js: 54s, proxy.ts: 715ms, application-code: 7.9s)
+ GET /dashboard/renter 500 in 50s (next.js: 43s, proxy.ts: 59ms, application-code: 7.0s)
+ GET /dashboard/renter 500 in 30.6s (next.js: 23.7s, proxy.ts: 48ms, application-code: 6.9s)
+ GET /dashboard/renter 500 in 30.2s (next.js: 23.2s, proxy.ts: 89ms, application-code: 6.9s)
+ GET /dashboard/renter/map 500 in 933ms (next.js: 488ms, proxy.ts: 280ms, application-code: 165ms)
+ GET /dashboard/renter 500 in 145ms (next.js: 34ms, proxy.ts: 17ms, application-code: 94ms)
+ GET /dashboard/renter/map 500 in 185ms (next.js: 52ms, proxy.ts: 19ms, application-code: 115ms)
+ GET /login 500 in 315ms (next.js: 215ms, application-code: 100ms)
+✓ Compiled in 2.9s
+○ Compiling /dashboard/renter ...
+ GET /dashboard/renter/map 200 in 8.8s (next.js: 5.5s, proxy.ts: 362ms, application-code: 3.0s)
+ GET /dashboard/renter 200 in 8.4s (next.js: 6.7s, proxy.ts: 30ms, application-code: 1750ms)
+ GET /dashboard/renter/map 200 in 804ms (next.js: 33ms, proxy.ts: 70ms, application-code: 701ms)
+✓ Compiled in 2.5s
+ GET /dashboard/renter/map 200 in 3.9s (next.js: 2.0s, proxy.ts: 620ms, application-code: 1204ms)
+ GET /dashboard/renter/map 200 in 2.4s (next.js: 29ms, proxy.ts: 70ms, application-code: 2.3s)
+ GET /dashboard/renter 200 in 394ms (next.js: 117ms, proxy.ts: 67ms, application-code: 210ms)
+✓ Compiled in 1286ms
+ GET /dashboard/renter/map 200 in 3.7s (next.js: 829ms, proxy.ts: 704ms, application-code: 2.2s)
+ GET /dashboard/renter 200 in 2.0s (next.js: 464ms, proxy.ts: 83ms, application-code: 1488ms)
+ GET /dashboard/renter/map 200 in 1105ms (next.js: 62ms, proxy.ts: 21ms, application-code: 1022ms)
+✓ Compiled in 2.1s
+ GET /dashboard/renter/map 200 in 2.8s (next.js: 1268ms, proxy.ts: 647ms, application-code: 883ms)
+ GET /dashboard/renter 200 in 1467ms (next.js: 1095ms, proxy.ts: 24ms, application-code: 347ms)
+✓ Compiled in 2s
+ GET /dashboard/renter/map 200 in 4.1s (next.js: 1931ms, proxy.ts: 316ms, application-code: 1853ms)
+ GET /dashboard/renter 200 in 916ms (next.js: 301ms, proxy.ts: 15ms, application-code: 599ms)
+✓ Compiled in 850ms
+ GET /dashboard/renter/map 200 in 3.0s (next.js: 862ms, proxy.ts: 455ms, application-code: 1669ms)
+ GET /dashboard/renter 200 in 1319ms (next.js: 754ms, proxy.ts: 15ms, application-code: 551ms)
+✓ Compiled in 1501ms
+ GET /dashboard/renter/map 200 in 3.5s (next.js: 1521ms, proxy.ts: 913ms, application-code: 1017ms)
+ GET /dashboard/renter 200 in 185ms (next.js: 43ms, proxy.ts: 41ms, application-code: 101ms)
+ GET /dashboard/renter/map 200 in 2.5s (next.js: 29ms, proxy.ts: 227ms, application-code: 2.3s)
+ GET /dashboard/renter?property=20000000-0000-4000-8000-000000000002 200 in 1215ms (next.js: 94ms, proxy.ts: 37ms, application-code: 1084ms)
+✓ Compiled in 2.7s
+ GET /dashboard/renter/map 200 in 361ms (next.js: 21ms, proxy.ts: 49ms, application-code: 292ms)
+ GET /dashboard/renter/map 200 in 201ms (next.js: 10ms, proxy.ts: 11ms, application-code: 180ms)
+ GET /dashboard/renter 200 in 76ms (next.js: 25ms, proxy.ts: 6ms, application-code: 44ms)
+ GET /dashboard/renter/map 200 in 514ms (next.js: 98ms, proxy.ts: 120ms, application-code: 296ms)
+✓ Compiled in 1696ms
+ GET /dashboard/renter/map 200 in 3.9s (next.js: 2.1s, proxy.ts: 18ms, application-code: 1833ms)
+ GET /dashboard/renter/map 200 in 5.2s (next.js: 3.6s, proxy.ts: 1268ms, application-code: 346ms)
+✓ Compiled in 1153ms
+ GET /dashboard/renter/map 200 in 1951ms (next.js: 483ms, proxy.ts: 781ms, application-code: 686ms)
+ GET /dashboard/renter/map 200 in 429ms (next.js: 80ms, proxy.ts: 19ms, application-code: 330ms)
+✓ Compiled in 1481ms
+ GET /dashboard/renter/map 200 in 2.2s (next.js: 1539ms, proxy.ts: 345ms, application-code: 335ms)
+ GET /dashboard/renter/map 200 in 431ms (next.js: 46ms, proxy.ts: 32ms, application-code: 353ms)
+✓ Compiled in 3.5s
+ GET /dashboard/renter/map 200 in 4.1s (next.js: 1575ms, proxy.ts: 1153ms, application-code: 1378ms)
+ GET /dashboard/renter/map 200 in 211ms (next.js: 29ms, proxy.ts: 16ms, application-code: 167ms)
+✓ Compiled in 549ms
+ GET /dashboard/renter/map 200 in 2.8s (next.js: 1100ms, proxy.ts: 933ms, application-code: 799ms)
+ GET /dashboard/renter/map 200 in 849ms (next.js: 83ms, proxy.ts: 34ms, application-code: 732ms)
+✓ Compiled in 728ms
+ GET /dashboard/renter/map 200 in 2.9s (next.js: 1712ms, proxy.ts: 780ms, application-code: 425ms)
+ GET /dashboard/renter/map 200 in 99ms (next.js: 7ms, proxy.ts: 9ms, application-code: 83ms)
+ GET /dashboard/renter 200 in 238ms (next.js: 83ms, proxy.ts: 38ms, application-code: 117ms)
+✓ Compiled in 4s
+ GET /dashboard/renter 200 in 3.3s (next.js: 846ms, proxy.ts: 400ms, application-code: 2.0s)
+ GET /dashboard/renter/map 200 in 2.9s (next.js: 1599ms, proxy.ts: 24ms, application-code: 1251ms)
+ GET /dashboard/renter 200 in 885ms (next.js: 13ms, proxy.ts: 22ms, application-code: 850ms)
+✓ Compiled in 7.8s
+ GET /dashboard/renter/map 500 in 1202ms (next.js: 467ms, proxy.ts: 567ms, application-code: 167ms)
+ GET /dashboard/renter/map 500 in 799ms (next.js: 77ms, proxy.ts: 64ms, application-code: 658ms)
+ GET /dashboard/renter/map 500 in 686ms (next.js: 198ms, proxy.ts: 85ms, application-code: 403ms)
+ GET /dashboard/renter/map 500 in 1200ms (proxy.ts: 49ms)
+ GET /dashboard/renter 500 in 371ms (next.js: 250ms, proxy.ts: 39ms, application-code: 81ms)
+ GET /dashboard/renter 500 in 230ms (next.js: 79ms, proxy.ts: 20ms, application-code: 131ms)
+ GET /dashboard/renter 500 in 132ms (next.js: 53ms, proxy.ts: 13ms, application-code: 67ms)
+ GET /dashboard/renter 500 in 123ms (next.js: 23ms, proxy.ts: 13ms, application-code: 87ms)
+ GET /dashboard/renter/map 500 in 550ms (next.js: 149ms, proxy.ts: 222ms, application-code: 178ms)
+ GET /dashboard/renter 500 in 298ms (next.js: 132ms, proxy.ts: 95ms, application-code: 71ms)
+ GET /dashboard/renter/map 500 in 521ms (next.js: 219ms, proxy.ts: 109ms, application-code: 193ms)
+ GET /dashboard/renter 500 in 1095ms (next.js: 881ms, proxy.ts: 70ms, application-code: 144ms)
+ GET /dashboard/renter/map 500 in 228ms (next.js: 41ms, proxy.ts: 78ms, application-code: 110ms)
+ GET /dashboard/renter 500 in 235ms (next.js: 182ms, proxy.ts: 16ms, application-code: 37ms)
+ GET /dashboard/renter/map 500 in 539ms (next.js: 131ms, proxy.ts: 221ms, application-code: 187ms)
+ GET /dashboard/renter 500 in 333ms (next.js: 200ms, proxy.ts: 11ms, application-code: 122ms)
+✓ Compiled in 6.3s
+ GET /dashboard/renter/map 200 in 4.7s (next.js: 1308ms, proxy.ts: 18ms, application-code: 3.4s)
+ GET /dashboard/renter/map 200 in 2.8s (next.js: 700ms, proxy.ts: 35ms, application-code: 2.0s)
+ GET /dashboard/renter 200 in 4.0s (next.js: 2.3s, proxy.ts: 318ms, application-code: 1443ms)
+✓ Compiled in 2.1s
+ GET /dashboard/renter/map 500 in 308ms (next.js: 75ms, proxy.ts: 173ms, application-code: 60ms)
+ GET /dashboard/renter/map 500 in 79ms (next.js: 29ms, proxy.ts: 17ms, application-code: 33ms)
+ GET /dashboard/renter/map 500 in 70ms (next.js: 28ms, proxy.ts: 9ms, application-code: 32ms)
+ GET /dashboard/renter/map 500 in 70ms (next.js: 25ms, proxy.ts: 8ms, application-code: 36ms)
+ GET /dashboard/renter 500 in 189ms (next.js: 130ms, proxy.ts: 14ms, application-code: 44ms)
+ GET /dashboard/renter 500 in 65ms (next.js: 29ms, proxy.ts: 7ms, application-code: 29ms)
+ GET /dashboard/renter 500 in 80ms (next.js: 44ms, proxy.ts: 6ms, application-code: 30ms)
+ GET /dashboard/renter 500 in 57ms (next.js: 24ms, proxy.ts: 7ms, application-code: 26ms)
+✓ Compiled in 2.6s
+ GET /dashboard/renter/map 200 in 7.3s (next.js: 1049ms, proxy.ts: 43ms, application-code: 6.2s)
+ GET /dashboard/renter/map 200 in 1587ms (next.js: 483ms, proxy.ts: 42ms, application-code: 1062ms)
+ GET /dashboard/renter 200 in 2.6s (next.js: 559ms, proxy.ts: 24ms, application-code: 2.0s)
+ GET /dashboard/renter/map 200 in 509ms (next.js: 128ms, proxy.ts: 83ms, application-code: 299ms)
+○ Compiling /dashboard/renter/recommendations ...
+ GET /dashboard/renter/recommendations 200 in 18.7s (next.js: 18.3s, proxy.ts: 18ms, application-code: 397ms)
+ GET /dashboard/renter/recommendations 200 in 246ms (next.js: 48ms, proxy.ts: 45ms, application-code: 153ms)
+○ Compiling /dashboard/renter/assistant ...
+ GET /dashboard/renter/assistant 200 in 12.1s (next.js: 4.9s, proxy.ts: 4ms, application-code: 7.2s)
+ GET /dashboard/renter/recommendations 200 in 187ms (next.js: 19ms, proxy.ts: 31ms, application-code: 137ms)
+ GET /dashboard/renter/map 200 in 109ms (next.js: 11ms, proxy.ts: 8ms, application-code: 90ms)
+ GET /dashboard/renter 200 in 81ms (next.js: 16ms, proxy.ts: 7ms, application-code: 57ms)
+✓ Compiled in 4.2s
+ GET /dashboard/renter 500 in 1021ms (next.js: 367ms, proxy.ts: 342ms, application-code: 311ms)
+ GET /dashboard/renter/map 500 in 676ms (next.js: 563ms, proxy.ts: 27ms, application-code: 85ms)
+ GET /dashboard/renter 500 in 362ms (next.js: 134ms, proxy.ts: 30ms, application-code: 198ms)
+ GET /dashboard/renter/map 500 in 358ms (next.js: 215ms, proxy.ts: 25ms, application-code: 118ms)
+ GET /dashboard/renter/map 500 in 1004ms (next.js: 741ms, proxy.ts: 41ms, application-code: 222ms)
+ GET /dashboard/renter 500 in 1000ms (next.js: 849ms, proxy.ts: 45ms, application-code: 106ms)
+ GET /dashboard/renter/map 500 in 1134ms (next.js: 567ms, proxy.ts: 378ms, application-code: 189ms)
+ GET /dashboard/renter 500 in 683ms (next.js: 476ms, proxy.ts: 14ms, application-code: 193ms)
+ GET /dashboard/renter/map 500 in 264ms (next.js: 45ms, proxy.ts: 136ms, application-code: 83ms)
+ GET /dashboard/renter 500 in 354ms (next.js: 275ms, proxy.ts: 13ms, application-code: 65ms)
+ GET /dashboard/renter 500 in 329ms (next.js: 131ms, proxy.ts: 73ms, application-code: 126ms)
+ GET /dashboard/renter/map 500 in 328ms (next.js: 46ms, proxy.ts: 219ms, application-code: 63ms)
+ GET /dashboard/renter 500 in 259ms (next.js: 223ms, proxy.ts: 11ms, application-code: 25ms)
+ GET /dashboard/renter 500 in 424ms (next.js: 162ms, proxy.ts: 176ms, application-code: 85ms)
+ GET /dashboard/renter 500 in 268ms (next.js: 101ms, proxy.ts: 83ms, application-code: 84ms)
+✓ Compiled in 1338ms
+ GET /dashboard/renter 200 in 45s (next.js: 5.0s, proxy.ts: 159ms, application-code: 39.4s)
+ GET /dashboard/renter/map 200 in 44s (next.js: 1818ms, proxy.ts: 18.2s, application-code: 23.8s)
+✓ Compiled in 3.1s
+ GET /dashboard/renter/map 200 in 2.4s (next.js: 768ms, proxy.ts: 1241ms, application-code: 350ms)
+ GET /dashboard/renter 200 in 456ms (next.js: 240ms, proxy.ts: 8ms, application-code: 209ms)
+✓ Compiled in 963ms
+ GET /dashboard/renter 200 in 457ms (next.js: 247ms, proxy.ts: 8ms, application-code: 202ms)
+ GET /dashboard/renter/map 200 in 523ms (next.js: 361ms, proxy.ts: 59ms, application-code: 103ms)
+✓ Compiled in 693ms
+ GET /dashboard/renter/map 200 in 945ms (next.js: 294ms, proxy.ts: 147ms, application-code: 504ms)
+ GET /dashboard/renter 200 in 404ms (next.js: 277ms, proxy.ts: 7ms, application-code: 120ms)
+✓ Compiled in 1385ms
+ GET /dashboard/renter 200 in 4.3s (next.js: 931ms, proxy.ts: 188ms, application-code: 3.2s)
+ GET /dashboard/renter/map 200 in 4.2s (next.js: 2.7s, proxy.ts: 50ms, application-code: 1453ms)
+✓ Compiled in 3.4s
+ GET /dashboard/renter/map 200 in 1625ms (next.js: 663ms, proxy.ts: 90ms, application-code: 871ms)
+ GET /dashboard/renter 200 in 478ms (next.js: 317ms, proxy.ts: 13ms, application-code: 148ms)
+✓ Compiled in 938ms
+ GET /dashboard/renter/map 500 in 187ms (next.js: 61ms, proxy.ts: 72ms, application-code: 54ms)
+ GET /dashboard/renter/map 500 in 278ms (next.js: 28ms, proxy.ts: 18ms, application-code: 232ms)
+ GET /dashboard/renter/map 500 in 238ms (next.js: 87ms, proxy.ts: 9ms, application-code: 142ms)
+ GET /dashboard/renter 500 in 296ms (next.js: 188ms, proxy.ts: 43ms, application-code: 65ms)
+ GET /dashboard/renter/map 500 in 257ms (next.js: 140ms, proxy.ts: 72ms, application-code: 45ms)
+ GET /dashboard/renter 500 in 146ms (next.js: 82ms, proxy.ts: 17ms, application-code: 47ms)
+ GET /dashboard/renter 500 in 85ms (next.js: 36ms, proxy.ts: 10ms, application-code: 39ms)
+ GET /dashboard/renter 500 in 171ms (next.js: 42ms, proxy.ts: 85ms, application-code: 43ms)
+✓ Compiled in 1192ms
+ GET /dashboard/renter/map 200 in 5.3s (next.js: 514ms, proxy.ts: 49ms, application-code: 4.8s)
+ GET /dashboard/renter 200 in 5.3s (next.js: 3.9s, proxy.ts: 26ms, application-code: 1323ms)
+ GET /dashboard/renter 200 in 120ms (next.js: 8ms, proxy.ts: 6ms, application-code: 106ms)
+✓ Compiled in 2.8s
+ GET /dashboard/renter/map 200 in 1883ms (next.js: 448ms, proxy.ts: 130ms, application-code: 1305ms)
+ GET /dashboard/renter/map 200 in 1237ms (next.js: 25ms, proxy.ts: 26ms, application-code: 1187ms)
+ GET /dashboard/renter 200 in 1379ms (next.js: 632ms, proxy.ts: 28ms, application-code: 719ms)
+ GET /dashboard/renter 200 in 890ms (next.js: 33ms, proxy.ts: 21ms, application-code: 836ms)
+ GET /dashboard/renter/map 200 in 894ms (next.js: 122ms, proxy.ts: 24ms, application-code: 749ms)
+ GET /dashboard/renter/map 200 in 664ms (next.js: 60ms, proxy.ts: 14ms, application-code: 590ms)
+ GET /dashboard/renter 200 in 436ms (next.js: 144ms, proxy.ts: 32ms, application-code: 259ms)
+ GET /dashboard/renter 200 in 448ms (next.js: 51ms, proxy.ts: 22ms, application-code: 374ms)
+✓ Compiled in 1647ms
+✓ Compiled in 2.6s
+ GET /dashboard/renter/map 200 in 3.5s (next.js: 1845ms, proxy.ts: 714ms, application-code: 973ms)
+ GET /dashboard/renter 200 in 1516ms (next.js: 341ms, proxy.ts: 86ms, application-code: 1089ms)
+ GET /dashboard/renter/map 200 in 1309ms (next.js: 235ms, proxy.ts: 28ms, application-code: 1046ms)
+ GET /dashboard/renter/map 200 in 841ms (next.js: 32ms, proxy.ts: 19ms, application-code: 790ms)
+ GET /dashboard/renter 200 in 855ms (next.js: 212ms, proxy.ts: 16ms, application-code: 627ms)
+ GET /dashboard/renter/map 200 in 566ms (next.js: 43ms, proxy.ts: 56ms, application-code: 467ms)
+ GET /dashboard/renter 200 in 536ms (next.js: 186ms, proxy.ts: 30ms, application-code: 319ms)
+ GET /dashboard/renter 200 in 516ms (next.js: 325ms, proxy.ts: 17ms, application-code: 174ms)
+✓ Compiled in 1875ms
+ GET /dashboard/renter/map 200 in 3.5s (next.js: 568ms, proxy.ts: 175ms, application-code: 2.7s)
+ GET /dashboard/renter/map 200 in 2.5s (next.js: 455ms, proxy.ts: 19ms, application-code: 1985ms)
+ GET /dashboard/renter 200 in 2.6s (next.js: 361ms, proxy.ts: 21ms, application-code: 2.2s)
+ GET /dashboard/renter/map 200 in 1198ms (next.js: 256ms, proxy.ts: 115ms, application-code: 827ms)
+✓ Compiled in 1554ms
+ GET /dashboard/renter/map 200 in 4.1s (next.js: 4.0s, proxy.ts: 18ms, application-code: 176ms)
+ GET /dashboard/renter 200 in 5.2s (next.js: 3.3s, proxy.ts: 1033ms, application-code: 841ms)
+ GET /dashboard/renter 200 in 2.9s (next.js: 29ms, proxy.ts: 81ms, application-code: 2.8s)
+ GET /dashboard/renter/map 200 in 95ms (next.js: 20ms, proxy.ts: 5ms, application-code: 69ms)
+✓ Compiled in 2.6s
+ GET /dashboard/renter/map 200 in 1649ms (next.js: 943ms, proxy.ts: 63ms, application-code: 642ms)
+ GET /dashboard/renter/map 200 in 674ms (next.js: 166ms, proxy.ts: 279ms, application-code: 229ms)
+ GET /dashboard/renter/map 200 in 1936ms (next.js: 8ms, proxy.ts: 10ms, application-code: 1918ms)
+ GET /dashboard/renter 200 in 332ms (next.js: 246ms, proxy.ts: 6ms, application-code: 80ms)
+ GET /dashboard/renter/map 200 in 1380ms (next.js: 359ms, proxy.ts: 329ms, application-code: 691ms)
+✓ Compiled in 1874ms
+ GET /dashboard/renter/map 200 in 6.6s (next.js: 4.0s, proxy.ts: 1863ms, application-code: 690ms)
+ GET /dashboard/renter/map 200 in 4.7s (next.js: 4.1s, proxy.ts: 267ms, application-code: 387ms)
+✓ Compiled in 3.9s
+ GET /dashboard/renter/map 200 in 5.6s (next.js: 490ms, proxy.ts: 284ms, application-code: 4.9s)
+ GET /dashboard/renter/map 200 in 4.7s (next.js: 268ms, proxy.ts: 40ms, application-code: 4.4s)
+ GET /dashboard/renter/map 200 in 2.9s (next.js: 1747ms, proxy.ts: 248ms, application-code: 867ms)
+ GET /dashboard/renter/map 200 in 5.7s (next.js: 75ms, proxy.ts: 32ms, application-code: 5.6s)
+ GET /dashboard/renter/map 200 in 5.9s (next.js: 185ms, proxy.ts: 37ms, application-code: 5.7s)
+ GET /dashboard/renter/map 200 in 3.6s (next.js: 1718ms, proxy.ts: 480ms, application-code: 1383ms)
+ GET /dashboard/renter/map 200 in 569ms (next.js: 301ms, proxy.ts: 84ms, application-code: 183ms)
+ GET /dashboard/renter/map 200 in 493ms (next.js: 404ms, proxy.ts: 11ms, application-code: 78ms)
+ GET /login 200 in 37.7s (next.js: 5.7s, application-code: 32.1s)
+ GET / 200 in 1417ms (next.js: 684ms, application-code: 734ms)
+ GET / 200 in 250ms (next.js: 7ms, application-code: 243ms)
+ GET /login 200 in 73ms (next.js: 18ms, application-code: 55ms)
+○ Compiling /dashboard ...
+ GET /dashboard 200 in 9.2s (next.js: 9.1s, proxy.ts: 15ms, application-code: 58ms)
+ GET /dashboard/renter 200 in 2.2s (next.js: 2.1s, proxy.ts: 7ms, application-code: 169ms)
+ GET /dashboard/renter/map 200 in 178ms (next.js: 68ms, proxy.ts: 14ms, application-code: 96ms)
+ GET /dashboard/renter 200 in 66ms (next.js: 9ms, proxy.ts: 6ms, application-code: 52ms)
+ GET /dashboard/renter/map 200 in 80ms (next.js: 25ms, proxy.ts: 7ms, application-code: 48ms)
+✓ Compiled in 2.2s
+ GET /dashboard/renter/map 200 in 10.8s (next.js: 2.1s, proxy.ts: 924ms, application-code: 7.8s)
+ GET /dashboard/renter/map 200 in 9.9s (next.js: 3.9s, proxy.ts: 70ms, application-code: 6.0s)
+✓ Compiled in 4s
+ GET /dashboard/renter/map 200 in 2.2s (next.js: 577ms, proxy.ts: 89ms, application-code: 1497ms)
+ GET /dashboard/renter/map 200 in 309ms (next.js: 47ms, proxy.ts: 21ms, application-code: 242ms)
+✓ Compiled in 1962ms
+✓ Compiled in 467ms
+ GET /dashboard/renter/map 200 in 1770ms (next.js: 999ms, proxy.ts: 354ms, application-code: 417ms)
+ GET /dashboard/renter/map 200 in 227ms (next.js: 34ms, proxy.ts: 28ms, application-code: 165ms)
+✓ Compiled in 384ms
+ GET /dashboard/renter/map 200 in 1321ms (next.js: 875ms, proxy.ts: 44ms, application-code: 402ms)
+ GET /dashboard/renter/map 200 in 222ms (next.js: 23ms, proxy.ts: 7ms, application-code: 193ms)
+✓ Compiled in 634ms
+ GET /dashboard/renter/map 200 in 1652ms (next.js: 1133ms, proxy.ts: 250ms, application-code: 269ms)
+ GET /dashboard/renter/map 200 in 133ms (next.js: 12ms, proxy.ts: 11ms, application-code: 110ms)
+ GET /dashboard/renter/map 200 in 1629ms (next.js: 32ms, proxy.ts: 59ms, application-code: 1538ms)
+ GET /dashboard/renter/map 200 in 133ms (next.js: 6ms, proxy.ts: 5ms, application-code: 122ms)
+ GET /dashboard/renter/map 200 in 656ms (next.js: 139ms, proxy.ts: 95ms, application-code: 423ms)
+✓ Compiled in 1535ms
+ GET /dashboard/renter/map 200 in 1187ms (next.js: 435ms, proxy.ts: 324ms, application-code: 427ms)
+ GET /dashboard/renter/map 200 in 308ms (next.js: 60ms, proxy.ts: 31ms, application-code: 218ms)
+✓ Compiled in 411ms
+ GET /dashboard/renter/map 200 in 694ms (next.js: 345ms, proxy.ts: 80ms, application-code: 269ms)
+ GET /dashboard/renter/map 200 in 152ms (next.js: 15ms, proxy.ts: 19ms, application-code: 117ms)
+✓ Compiled in 462ms
+ GET /dashboard/renter/map 500 in 2.9s (next.js: 268ms, proxy.ts: 53ms, application-code: 2.5s)
+ GET /dashboard/renter/map 500 in 1095ms (next.js: 22ms, proxy.ts: 24ms, application-code: 1048ms)
+✓ Compiled in 274ms
+ GET /dashboard/renter/map 500 in 1628ms (next.js: 379ms, proxy.ts: 68ms, application-code: 1181ms)
+ GET /dashboard/renter/map 500 in 760ms (next.js: 41ms, proxy.ts: 15ms, application-code: 703ms)
+✓ Compiled in 941ms
+ GET /dashboard/renter/map 500 in 2.3s (next.js: 254ms, proxy.ts: 93ms, application-code: 1967ms)
+ GET /dashboard/renter/map 500 in 2.2s (next.js: 1404ms, proxy.ts: 15ms, application-code: 811ms)
+✓ Compiled in 609ms
+ GET /dashboard/renter/map 500 in 3.3s (next.js: 499ms, proxy.ts: 17ms, application-code: 2.8s)
+ GET /dashboard/renter/map 500 in 1255ms (next.js: 99ms, proxy.ts: 53ms, application-code: 1103ms)
+✓ Compiled in 302ms
+ GET /dashboard/renter/map 500 in 3.8s (next.js: 570ms, proxy.ts: 144ms, application-code: 3.0s)
+ GET /dashboard/renter/map 500 in 3.6s (next.js: 2.4s, proxy.ts: 15ms, application-code: 1209ms)
+✓ Compiled in 749ms
+ GET /dashboard/renter/map 200 in 3.6s (next.js: 631ms, proxy.ts: 319ms, application-code: 2.6s)
+ GET /dashboard/renter/map 200 in 3.6s (next.js: 837ms, proxy.ts: 325ms, application-code: 2.4s)
+ GET /dashboard/renter/map 200 in 505ms (next.js: 56ms, proxy.ts: 122ms, application-code: 328ms)
+ GET /dashboard/renter/map 200 in 236ms (next.js: 8ms, proxy.ts: 8ms, application-code: 219ms)
+[?25h

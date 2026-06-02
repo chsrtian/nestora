@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FooterCredit } from "@/app/components/brand/nestora-brand";
 import { MobileNav, SidebarNav, type SidebarNavItem } from "./sidebar-nav";
 import { TopNav } from "./top-nav";
 import { cn } from "../ui/utils";
@@ -33,6 +34,9 @@ export function AppShell({
         <SidebarNav items={navItems} footer={sidebarFooter} />
         <main className={cn("min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8", className)}>{children}</main>
       </div>
+      <footer className="border-t border-neutral-200 bg-[#F7F7F5] px-4 py-4 text-center sm:px-6 lg:px-8">
+        <FooterCredit />
+      </footer>
     </div>
   );
 }

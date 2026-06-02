@@ -37,8 +37,10 @@ export function SidebarNav({ items, footer, className }: SidebarNavProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                active ? "bg-neutral-950 text-white" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950",
+                "flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+                active
+                  ? "border-violet-200 bg-violet-50 text-violet-700 shadow-sm"
+                  : "border-transparent text-neutral-600 hover:border-violet-100 hover:bg-violet-50/60 hover:text-violet-700",
               )}
             >
               <span className="flex min-w-0 items-center gap-3">
@@ -46,7 +48,7 @@ export function SidebarNav({ items, footer, className }: SidebarNavProps) {
                 <span className="truncate">{item.label}</span>
               </span>
               {item.badge ? (
-                <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold", active ? "bg-white/15 text-white" : "bg-violet-50 text-violet-700")}>
+                <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold", active ? "bg-white text-violet-700" : "bg-violet-50 text-violet-700")}>
                   {item.badge}
                 </span>
               ) : null}
@@ -76,10 +78,10 @@ export function MobileNav({ items }: MobileNavProps) {
             key={item.href}
             href={item.href}
             className={cn(
-              "inline-flex h-10 shrink-0 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors",
+              "inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-sm font-medium transition-colors",
               active
-                ? "border-neutral-950 bg-neutral-950 text-white"
-                : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:text-neutral-950",
+                ? "border-violet-200 bg-violet-50 text-violet-700 shadow-sm"
+                : "border-neutral-200 bg-white text-neutral-600 hover:border-violet-200 hover:bg-violet-50/60 hover:text-violet-700",
             )}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -88,7 +90,7 @@ export function MobileNav({ items }: MobileNavProps) {
               <span
                 className={cn(
                   "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                  active ? "bg-white/15 text-white" : "bg-violet-50 text-violet-700",
+                  active ? "bg-white text-violet-700" : "bg-violet-50 text-violet-700",
                 )}
               >
                 {item.badge}

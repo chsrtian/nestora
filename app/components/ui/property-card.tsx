@@ -3,6 +3,7 @@ import { Bath, BedDouble, Building2, MapPin } from "lucide-react";
 import { Badge } from "./badge";
 import { StatusBadge } from "./status-badge";
 import { cn } from "./utils";
+import { formatMonthlyRentInPHP } from "@/lib/currency";
 
 type PropertyCardProps = {
   title: string;
@@ -24,7 +25,7 @@ function formatRent(monthlyRent: number | string | null | undefined) {
   if (monthlyRent === null || monthlyRent === undefined || monthlyRent === "") return "Price unavailable";
   const numericRent = Number(monthlyRent);
   if (Number.isNaN(numericRent)) return `${monthlyRent}/mo`;
-  return `${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(numericRent)}/mo`;
+  return formatMonthlyRentInPHP(numericRent);
 }
 
 export function PropertyCard({
@@ -62,7 +63,7 @@ export function PropertyCard({
           <h2 className="line-clamp-1 text-base font-medium text-neutral-950">{title}</h2>
           <p className="flex items-center gap-1.5 text-sm text-neutral-500">
             <MapPin className="h-4 w-4" aria-hidden="true" />
-            <span className="line-clamp-1">{[city, address].filter(Boolean).join(" · ") || "Location unavailable"}</span>
+            <span className="line-clamp-1">{[city, address].filter(Boolean).join(" - ") || "Location unavailable"}</span>
           </p>
         </div>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-600">
@@ -79,7 +80,13 @@ export function PropertyCard({
             </span>
           ) : null}
         </div>
-        {description ? <p className="line-clamp-2 text-sm leading-6 text-neutral-500">{description}</p> : null}
+        {description ? (
+          <div className="relative min-h-[4.5rem]">
+            <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-neutral-500">
+              {description}
+            </p>
+          </div>
+        ) : null}
         {visibleAmenities.length ? (
           <div className="flex flex-wrap gap-2">
             {visibleAmenities.map((amenity) => (

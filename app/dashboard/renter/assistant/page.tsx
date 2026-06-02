@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   Bath,
   BedDouble,
   Bot,
+  Building2,
   CheckCircle2,
   Home,
   Loader2,
@@ -15,6 +17,8 @@ import {
   Send,
   Sparkles,
   Wand2,
+  WifiOff,
+  Zap,
 } from "lucide-react";
 import { AppShell } from "@/app/components/layout/app-shell";
 import type { SidebarNavItem } from "@/app/components/layout/sidebar-nav";
@@ -31,6 +35,7 @@ import { cn } from "@/app/components/ui/utils";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
+import { formatPriceInPHP } from "@/lib/currency";
 
 type Amenity = {
   id: string;
@@ -47,17 +52,19 @@ type Property = {
   title: string;
   description: string | null;
   property_type: string | null;
+  address_line: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
-  price: number;
-  deposit: number;
-  advance: number;
-  bedrooms: number;
-  bathrooms: number;
-  area_sqm: number;
+  price: number | null;
+  deposit: number | null;
+  advance: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  area_sqm: number | null;
   available_from: string | null;
   property_amenities?: PropertyAmenity[] | null;
+  property_images?: { storage_path: string; is_cover: boolean }[] | null;
 };
 
 type EmbeddedOne<T> = T | T[] | null;
@@ -66,16 +73,19 @@ type PropertyAmenityRow = Omit<PropertyAmenity, "amenities"> & {
   amenities: EmbeddedOne<PropertyAmenity["amenities"]>;
 };
 
-type PropertyRow = Omit<Property, "property_amenities"> & {
+type PropertyRow = Omit<Property, "property_amenities" | "property_images"> & {
   property_amenities?: PropertyAmenityRow[] | null;
+  property_images?: { storage_path: string; is_cover: boolean }[] | null;
 };
 
 type Preferences = {
   city: string;
+  near: string;
   propertyType: string;
   minBudget: string;
   maxBudget: string;
   amenityIds: string[];
+  petFriendly?: boolean;
 };
 
 type Recommendation = {
@@ -94,6 +104,7 @@ type ChatMessage = {
 
 const DEFAULT_PREFERENCES: Preferences = {
   city: "",
+  near: "",
   propertyType: "",
   minBudget: "",
   maxBudget: "",
@@ -116,10 +127,34 @@ const renterNavItems: SidebarNavItem[] = [
   },
 ];
 
+const LANDMARK_ALIAS_MAP: Array<{ aliases: string[]; landmark: string }> = [
+  {
+    aliases: [
+      "CSU",
+      "Caraga State University",
+      "Caraga State University Cabadbaran",
+      "CSU Cabadbaran",
+      "Caraga State University - Cabadbaran Campus",
+    ],
+    landmark: "Caraga State University - Cabadbaran Campus",
+  },
+];
+
+const resolveLandmark = (value: string): string | null => {
+  const lower = normalize(value);
+  for (const entry of LANDMARK_ALIAS_MAP) {
+    if (entry.aliases.some((alias) => lower === normalize(alias))) {
+      return entry.landmark;
+    }
+  }
+  return null;
+};
+
 const EXAMPLE_PROMPTS = [
-  "Apartment in Cabadbaran under 5000 with WiFi",
-  "Boarding house with parking below 4000",
-  "Studio near the city center with aircon",
+  "boarding house under 2500",
+  "apartment near CSU with WiFi",
+  "pangita kog apartment under 4000",
+  "studio with parking and aircon",
 ];
 
 const BUDGET_POINTS = 35;
@@ -129,23 +164,43 @@ const LOCATION_POINTS = 20;
 const NEUTRAL_FACTOR = 0.5;
 
 const PROPERTY_TYPE_KEYWORDS = [
-  { keyword: "boarding house", value: "boarding house" },
-  { keyword: "boardinghouse", value: "boarding house" },
-  { keyword: "boarding", value: "boarding house" },
+  { keyword: "boarding house", value: "boarding_house" },
+  { keyword: "boardinghouse", value: "boarding_house" },
+  { keyword: "boarding", value: "boarding_house" },
   { keyword: "apartment", value: "apartment" },
-  { keyword: "studio", value: "studio" },
+  { keyword: "studio", value: "apartment" },
+  { keyword: "condo", value: "apartment" },
   { keyword: "house", value: "house" },
+  { keyword: "inn", value: "inn" },
+  { keyword: "lodge", value: "lodge" },
+  { keyword: "pension", value: "pension_house" },
+  { keyword: "resort", value: "resort" },
+  { keyword: "room for rent", value: "room_for_rent" },
+];
+
+const AMENITY_KEYWORD_MAP: Array<{ aliases: string[]; amenityId: string }> = [
+  { aliases: ["wifi", "wi-fi", "wi fi", "wireless", "internet"], amenityId: "wifi" },
+  { aliases: ["parking", "car park", "carpark"], amenityId: "parking" },
+  { aliases: ["aircon", "air con", "air conditioning", "ac"], amenityId: "aircon" },
+  { aliases: ["kitchen"], amenityId: "kitchen" },
+  { aliases: ["laundry", "washer"], amenityId: "laundry" },
+  { aliases: ["security"], amenityId: "security" },
+  { aliases: ["furnished", "furniture"], amenityId: "furnished" },
 ];
 
 const normalize = (value: string | null | undefined) =>
   (value ?? "").trim().toLowerCase();
 
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+function formatPrice(value: number | null) {
+  return formatPriceInPHP(value);
+}
+
+function formatCount(value: number | null) {
+  return typeof value === "number" ? value : "Not listed";
+}
+
+function formatArea(value: number | null) {
+  return typeof value === "number" ? `${value} sqm` : "Area not listed";
 }
 
 function formatLocation(property: Property) {
@@ -163,37 +218,43 @@ const parseNumber = (value: string) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
-const escapeRegExp = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 const createId = () =>
   `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-const buildAmenityAliases = (name: string) => {
-  const lower = normalize(name);
-  const aliases = new Set<string>([lower]);
-
-  if (lower.includes("wifi") || lower.includes("wi-fi") || lower.includes("wireless")) {
-    aliases.add("wifi");
-    aliases.add("wi fi");
-    aliases.add("wi-fi");
-    aliases.add("wireless");
-  }
-
-  if (lower.includes("aircon") || lower.includes("air con") || lower.includes("air conditioning")) {
-    aliases.add("aircon");
-    aliases.add("air con");
-    aliases.add("air conditioning");
-  }
-
-  if (lower.includes("parking")) {
-    aliases.add("parking");
-    aliases.add("car park");
-    aliases.add("carpark");
-  }
-
-  return Array.from(aliases);
+type AIParsedFilters = {
+  intent?: string;
+  skip_search?: boolean;
+  property_type?: string;
+  max_price?: number;
+  min_price?: number;
+  pet_friendly?: boolean;
+  amenities?: string[];
+  city?: string;
+  near?: string;
+  bedrooms?: number;
+  move_in_date?: string;
 };
+
+type CombinedPreferences = Preferences & {
+  petFriendly?: boolean;
+};
+
+function normalizeEmbeddedOne<T>(value: EmbeddedOne<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+  return value;
+}
+
+function normalizeProperties(rows: PropertyRow[]): Property[] {
+  return rows.map((property) => ({
+    ...property,
+    property_amenities: property.property_amenities?.map((amenity) => ({
+      ...amenity,
+      amenities: normalizeEmbeddedOne(amenity.amenities),
+    })) ?? null,
+  }));
+}
 
 const scoreProperty = (
   property: Property,
@@ -208,13 +269,15 @@ const scoreProperty = (
 
   let budgetScore = 0;
   if (budgetProvided) {
-    const meetsMin = minBudget === null || property.price >= minBudget;
-    const meetsMax = maxBudget === null || property.price <= maxBudget;
-    if (meetsMin && meetsMax) {
+    const price = property.price;
+    const hasPrice = typeof price === "number";
+    const meetsMin = hasPrice && (minBudget === null || price >= minBudget);
+    const meetsMax = hasPrice && (maxBudget === null || price <= maxBudget);
+    if (hasPrice && meetsMin && meetsMax) {
       budgetScore = BUDGET_POINTS;
       reasons.push("Within budget");
     } else {
-      missing.push("Budget preference not met");
+      missing.push(hasPrice ? "Budget preference not met" : "Price not listed");
     }
   } else {
     budgetScore = BUDGET_POINTS * NEUTRAL_FACTOR;
@@ -227,8 +290,8 @@ const scoreProperty = (
   if (preferredType) {
     const matchesType =
       propertyType === preferredType ||
-      propertyType.includes(preferredType) ||
-      preferredType.includes(propertyType);
+      (propertyType?.includes(preferredType) ?? false) ||
+      (preferredType?.includes(propertyType) ?? false);
     if (matchesType) {
       typeScore = TYPE_POINTS;
       reasons.push("Property type matches");
@@ -241,14 +304,29 @@ const scoreProperty = (
   }
 
   const preferredCity = normalize(preferences.city);
+  const preferredNear = normalize(preferences.near);
   const propertyCity = normalize(property.city);
+  const propertyAddress = normalize(property.address_line);
+  const propertyTitle = normalize(property.title);
   let locationScore = 0;
-  if (preferredCity) {
-    if (propertyCity === preferredCity || propertyCity.includes(preferredCity)) {
+  if (preferredCity || preferredNear) {
+    const cityMatch = Boolean(
+      preferredCity &&
+        (propertyCity === preferredCity ||
+          (propertyCity?.includes(preferredCity) ?? false) ||
+          (preferredCity?.includes(propertyCity) ?? false)),
+    );
+    const nearMatch = Boolean(
+      preferredNear &&
+        (propertyCity?.includes(preferredNear) === true ||
+          propertyAddress?.includes(preferredNear) === true ||
+          propertyTitle?.includes(preferredNear) === true),
+    );
+    if (cityMatch || nearMatch) {
       locationScore = LOCATION_POINTS;
-      reasons.push("City matches preference");
+      reasons.push(cityMatch ? "City matches preference" : "Near landmark matches preference");
     } else {
-      missing.push("City preference not met");
+      missing.push("Location preference not met");
     }
   } else {
     locationScore = LOCATION_POINTS * NEUTRAL_FACTOR;
@@ -258,7 +336,7 @@ const scoreProperty = (
   const selectedAmenities = preferences.amenityIds;
   const propertyAmenityIds = (property.property_amenities ?? [])
     .map((item) => item.amenity_id)
-    .filter(Boolean);
+    .filter((id): id is string => Boolean(id));
 
   let amenityScore = 0;
   if (selectedAmenities.length > 0) {
@@ -291,150 +369,22 @@ const scoreProperty = (
   };
 };
 
-function normalizeEmbeddedOne<T>(value: EmbeddedOne<T>): T | null {
-  if (Array.isArray(value)) {
-    return value[0] ?? null;
-  }
-
-  return value;
-}
-
-function normalizeProperties(rows: PropertyRow[]): Property[] {
-  return rows.map((property) => ({
-    ...property,
-    property_amenities: property.property_amenities?.map((amenity) => ({
-      ...amenity,
-      amenities: normalizeEmbeddedOne(amenity.amenities),
-    })) ?? null,
-  }));
-}
-
-const parseBudget = (message: string) => {
-  const result: { min?: number; max?: number } = {};
-
-  const rangePattern = /([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:to|[-–])\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
-  const minMaxPattern =
-    /min(?:imum)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:to|[-–]|and)?\s*max(?:imum)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
-  const maxPattern =
-    /(?:under|below|max(?:imum)?)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
-  const minPattern =
-    /(?:over|above|min(?:imum)?)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
-
-  const minMaxMatch = message.match(minMaxPattern);
-  if (minMaxMatch) {
-    const min = parseNumber(minMaxMatch[1]);
-    const max = parseNumber(minMaxMatch[2]);
-    if (min !== null) result.min = min;
-    if (max !== null) result.max = max;
-    return result;
-  }
-
-  const rangeMatch = message.match(rangePattern);
-  if (rangeMatch) {
-    const min = parseNumber(rangeMatch[1]);
-    const max = parseNumber(rangeMatch[2]);
-    if (min !== null) result.min = min;
-    if (max !== null) result.max = max;
-    return result;
-  }
-
-  const maxMatch = message.match(maxPattern);
-  if (maxMatch) {
-    const max = parseNumber(maxMatch[1]);
-    if (max !== null) result.max = max;
-  }
-
-  const minMatch = message.match(minPattern);
-  if (minMatch) {
-    const min = parseNumber(minMatch[1]);
-    if (min !== null) result.min = min;
-  }
-
-  return result;
-};
-
-const parseMessageToPreferences = (
-  message: string,
-  amenities: Amenity[],
-  properties: Property[],
-): {
-  preferences: Preferences;
-  notes: string[];
-  amenityNames: string[];
-  error?: string;
-} => {
-  const lower = normalize(message);
-  const notes: string[] = [];
-  const preferences: Preferences = { ...DEFAULT_PREFERENCES };
-
-  const matchedType = PROPERTY_TYPE_KEYWORDS.find((entry) =>
-    lower.includes(entry.keyword),
-  );
-  if (matchedType) {
-    preferences.propertyType = matchedType.value;
-    notes.push(`Property type: ${matchedType.value}`);
-  }
-
-  const budget = parseBudget(lower);
-  if (budget.min !== undefined) {
-    preferences.minBudget = String(budget.min);
-    notes.push(`Min budget: ${budget.min}`);
-  }
-  if (budget.max !== undefined) {
-    preferences.maxBudget = String(budget.max);
-    notes.push(`Max budget: ${budget.max}`);
-  }
-
-  const cityOptions = Array.from(
-    new Set(
-      properties
-        .map((property) => normalize(property.city))
-        .filter((city) => city),
-    ),
-  ).sort((a, b) => b.length - a.length);
-
-  for (const city of cityOptions) {
-    const cityPattern = new RegExp(`\\b${escapeRegExp(city)}\\b`, "i");
-    if (cityPattern.test(lower)) {
-      preferences.city = city;
-      notes.push(`City: ${city}`);
-      break;
-    }
-  }
-
-  const matchedAmenities: Amenity[] = [];
-  amenities.forEach((amenity) => {
-    const aliases = buildAmenityAliases(amenity.name);
-    if (aliases.some((alias) => lower.includes(alias))) {
-      matchedAmenities.push(amenity);
-    }
-  });
-
-  if (matchedAmenities.length > 0) {
-    preferences.amenityIds = matchedAmenities.map((amenity) => amenity.id);
-    notes.push(
-      `Amenities: ${matchedAmenities.map((amenity) => amenity.name).join(", ")}`,
-    );
-  }
-
-  const amenityNames = matchedAmenities.map((amenity) => amenity.name);
-
-  const minBudget = parseNumber(preferences.minBudget);
-  const maxBudget = parseNumber(preferences.maxBudget);
-  if (
-    minBudget !== null &&
-    maxBudget !== null &&
-    minBudget > maxBudget
-  ) {
-    return {
-      preferences,
-      notes,
-      amenityNames,
-      error: "Your minimum budget is higher than your maximum budget.",
-    };
-  }
-
-  return { preferences, notes, amenityNames };
+const buildPreferenceSummary = (
+  notes: string[],
+  prefs: CombinedPreferences,
+) => {
+  if (notes.length > 0) return notes;
+  const parts: string[] = [];
+  if (prefs.city) parts.push(`City: ${prefs.city}`);
+  if (prefs.near) parts.push(`Near: ${prefs.near}`);
+  if (prefs.propertyType) parts.push(`Type: ${prefs.propertyType}`);
+  if (prefs.minBudget)
+    parts.push(`Min: ${formatPrice(parseNumber(prefs.minBudget) ?? 0)}`);
+  if (prefs.maxBudget)
+    parts.push(`Max: ${formatPrice(parseNumber(prefs.maxBudget))}`);
+  parts.push(...prefs.amenityIds.map((id) => `Amenity: ${id}`));
+  if (prefs.petFriendly) parts.push("Pet friendly");
+  return parts;
 };
 
 export default function RenterAssistantPage() {
@@ -448,7 +398,7 @@ export default function RenterAssistantPage() {
       id: createId(),
       role: "assistant",
       content:
-        "Hi! Tell me what kind of rental you are looking for. Example: I need a boarding house in Cabadbaran under 5000 with WiFi and parking.",
+        "Tell me what kind of rental you want. Example: boarding house under 2500, apartment near CSU with WiFi, or pangita kog apartment under 4000.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -457,8 +407,26 @@ export default function RenterAssistantPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [lastNotes, setLastNotes] = useState<string[]>([]);
   const [lastAmenityNames, setLastAmenityNames] = useState<string[]>([]);
+  const [combinedPreferences, setCombinedPreferences] =
+    useState<CombinedPreferences>(DEFAULT_PREFERENCES);
   const [renterId, setRenterId] = useState<string | null>(null);
   const [hasResults, setHasResults] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
+  const [aiConfigError, setAiConfigError] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const focusComposer = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      composerRef.current?.focus();
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = chatEndRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, isThinking]);
 
   useEffect(() => {
     let isMounted = true;
@@ -466,6 +434,7 @@ export default function RenterAssistantPage() {
     const run = async () => {
       const client = getSupabaseClient();
       if (!client) {
+        if (!isMounted) return;
         setError(supabaseConfigError ?? "Supabase is not configured.");
         setLoading(false);
         return;
@@ -476,13 +445,8 @@ export default function RenterAssistantPage() {
 
       if (!isMounted) return;
 
-      if (sessionError) {
-        setError(sessionError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!sessionData.session) {
+      if (sessionError || !sessionData.session) {
+        if (!isMounted) return;
         router.replace("/login");
         return;
       }
@@ -497,13 +461,11 @@ export default function RenterAssistantPage() {
       );
 
       if (!isMounted) return;
-
       if (profileError || !profile) {
         setError("Profile not found. Please contact support.");
         setLoading(false);
         return;
       }
-
       if (profile.role !== "renter") {
         router.replace("/dashboard");
         return;
@@ -515,7 +477,6 @@ export default function RenterAssistantPage() {
         .order("name");
 
       if (!isMounted) return;
-
       if (amenitiesError) {
         setError(amenitiesError.message);
         setLoading(false);
@@ -540,11 +501,157 @@ export default function RenterAssistantPage() {
 
   const topScore = recommendations[0]?.scorePercent ?? null;
 
-  const addMessage = (message: ChatMessage) => {
-    setMessages((prev) => [...prev, message]);
-  };
+  const amenityAliasToDbId = useCallback(
+    (signal: string): string | undefined => {
+      const lower = normalize(signal);
+      const match = amenities.find((amenity) => {
+        const name = normalize(amenity.name);
+        return lower === name || name.includes(lower) || lower.includes(name);
+      });
+      return match?.id;
+    },
+    [amenities],
+  );
 
-  const fetchApprovedProperties = async () => {
+  const amenityIdsForSignals = useCallback(
+    (signals: string[]): string[] => {
+      const ids: string[] = [];
+      const seen = new Set<string>();
+      for (const signal of signals) {
+        const id = amenityAliasToDbId(signal);
+        if (id && !seen.has(id)) {
+          ids.push(id);
+          seen.add(id);
+        }
+      }
+      return ids;
+    },
+    [amenityAliasToDbId],
+  );
+
+  const buildLocalNotes = useCallback(
+    (
+      text: string,
+    ): {
+      notes: string[];
+      amenityNames: string[];
+      filters: CombinedPreferences;
+    } => {
+      const lower = normalize(text);
+      const notes: string[] = [];
+      const amenityNames: string[] = [];
+      const prefs: CombinedPreferences = {
+        ...DEFAULT_PREFERENCES,
+        amenityIds: combinedPreferences.amenityIds,
+      };
+
+      const matchedType = PROPERTY_TYPE_KEYWORDS.find((entry) =>
+        lower.includes(entry.keyword),
+      );
+      if (matchedType) {
+        prefs.propertyType = matchedType.value;
+        notes.push(`Property type: ${matchedType.value}`);
+      }
+
+      const budget: { min?: number; max?: number } = {};
+      const normalizedMessage = lower.replace(/\b(?:php|pesos?)\b/gi, "");
+      const maxPattern = /(?:under|below|max(?:imum)?)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
+      const minPattern = /(?:over|above|min(?:imum)?)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
+      const minMaxPattern =
+        /(?:min(?:imum)?|from)\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:to|[-–]|and)\s*(?:max(?:imum)?|up to)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i;
+      const minMaxMatch = normalizedMessage.match(minMaxPattern);
+      if (minMaxMatch) {
+        const min = parseNumber(minMaxMatch[1]);
+        const max = parseNumber(minMaxMatch[2]);
+        if (min !== null) {
+          budget.min = min;
+          notes.push(`Min budget: ${formatPrice(min)}`);
+        }
+        if (max !== null) {
+          budget.max = max;
+          notes.push(`Max budget: ${formatPrice(max)}`);
+        }
+      } else {
+        const maxMatch = normalizedMessage.match(maxPattern);
+        if (maxMatch) {
+          const max = parseNumber(maxMatch[1]);
+          if (max !== null) {
+            budget.max = max;
+            notes.push(`Max budget: ${formatPrice(max)}`);
+          }
+        }
+        const minMatch = normalizedMessage.match(minPattern);
+        if (minMatch) {
+          const min = parseNumber(minMatch[1]);
+          if (min !== null) {
+            budget.min = min;
+            notes.push(`Min budget: ${formatPrice(min)}`);
+          }
+        }
+      }
+      prefs.minBudget = budget.min !== undefined ? String(budget.min) : combinedPreferences.minBudget ?? "";
+      prefs.maxBudget = budget.max !== undefined ? String(budget.max) : combinedPreferences.maxBudget ?? "";
+
+      const petPatterns = [
+        "pet friendly",
+        "pets ok",
+        "pet okay",
+        "pets allowed",
+        "allowed pets",
+      ];
+      if (petPatterns.some((pattern) => lower.includes(pattern))) {
+        prefs.petFriendly = true;
+        notes.push("Pet friendly");
+      }
+
+      const locationPatterns = ["duol sa", "duol", "near sa", "near", "close to"];
+      let locationText = "";
+      for (const pattern of locationPatterns) {
+        const index = lower.indexOf(pattern);
+        if (index !== -1) {
+          locationText = lower.slice(index + pattern.length).trim();
+          break;
+        }
+      }
+      if (!locationText) {
+        const csuMatch = lower.match(/cs[ua]/);
+        if (csuMatch) {
+          locationText = "CSU";
+        }
+      }
+      const trimmedLocation = locationText
+        .replace(/^(sa|ng|kita|tabok|baryo|bario|town|city)/i, "")
+        .trim();
+      if (trimmedLocation) {
+        const canonicalLandmark = resolveLandmark(trimmedLocation);
+        if (canonicalLandmark) {
+          prefs.near = canonicalLandmark;
+          notes.push(`Near: ${canonicalLandmark}`);
+        } else {
+          prefs.city = trimmedLocation;
+          notes.push(`City: ${trimmedLocation}`);
+        }
+      }
+
+      for (const aliasGroup of AMENITY_KEYWORD_MAP) {
+        if (aliasGroup.aliases.some((alias) => lower.includes(alias))) {
+          const id = amenityAliasToDbId(aliasGroup.aliases[0]);
+          if (id) {
+            if (!prefs.amenityIds.includes(id)) {
+              prefs.amenityIds.push(id);
+            }
+            amenityNames.push(aliasGroup.aliases[0]);
+            notes.push(`Amenity: ${aliasGroup.aliases[0]}`);
+          }
+        }
+      }
+
+      return { notes, amenityNames, filters: prefs };
+    },
+    [combinedPreferences, amenityAliasToDbId],
+  );
+
+  const fetchApprovedProperties = useCallback(async () => {
     const client = getSupabaseClient();
     if (!client) {
       setAssistantError(supabaseConfigError ?? "Supabase is not configured.");
@@ -554,7 +661,7 @@ export default function RenterAssistantPage() {
     const { data, error: propertiesError } = await client
       .from("properties")
       .select(
-        "id, title, description, property_type, city, state, country, price, deposit, advance, bedrooms, bathrooms, area_sqm, available_from, property_amenities(amenity_id, amenities(name))",
+        "id, title, description, property_type, address_line, city, state, country, price, deposit, advance, bedrooms, bathrooms, area_sqm, available_from, property_images(storage_path, is_cover), property_amenities(amenity_id, amenities(name))",
       )
       .eq("status", "approved");
 
@@ -564,110 +671,280 @@ export default function RenterAssistantPage() {
     }
 
     return normalizeProperties((data ?? []) as PropertyRow[]);
-  };
+  }, []);
 
-  const logRecommendations = async (items: Recommendation[]) => {
-    if (!renterId || items.length === 0) return;
-    const client = getSupabaseClient();
-    if (!client) return;
+  const logRecommendations = useCallback(
+    async (items: Recommendation[]) => {
+      if (!renterId || items.length === 0) return;
+      const client = getSupabaseClient();
+      if (!client) return;
 
-    const rows = items.slice(0, 5).map((item) => ({
-      renter_id: renterId,
-      property_id: item.property.id,
-      score: Number(item.score.toFixed(3)),
-      reason: item.reasons.join("; "),
-    }));
+      const rows = items.slice(0, 5).map((item) => ({
+        renter_id: renterId,
+        property_id: item.property.id,
+        score: Number(item.score.toFixed(3)),
+        reason: item.reasons.join("; "),
+      }));
 
-    const { error: insertError } = await client
-      .from("recommendation_logs")
-      .insert(rows);
+      const { error: insertError } = await client
+        .from("recommendation_logs")
+        .insert(rows);
 
-    if (insertError) {
-      return;
-    }
-  };
+      if (insertError) {
+        return;
+      }
+    },
+    [renterId],
+  );
 
-  const onSend = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAssistantError(null);
+  const applyPreferencesAndSearch = useCallback(
+    async (prefs: CombinedPreferences) => {
+      const properties = await fetchApprovedProperties();
+      const scored = properties.map((property) =>
+        scoreProperty(property, prefs),
+      );
+      const sorted = scored
+        .slice()
+        .sort((a, b) => b.score - a.score)
+        .filter((item) => item.score > 0);
+      const topMatches = sorted.slice(0, 5);
+      return topMatches;
+    },
+    [fetchApprovedProperties],
+  );
 
-    const text = input.trim();
-    if (!text) {
-      setAssistantError("Please enter a message to describe your rental needs.");
-      return;
-    }
+  const mergeAiIntoPreferences = useCallback(
+    (
+      prefs: CombinedPreferences,
+      ai: AIParsedFilters,
+      isFollowup: boolean,
+    ): CombinedPreferences => {
+      const next: CombinedPreferences = {
+        ...prefs,
+        amenityIds: [...prefs.amenityIds],
+      };
+      if (!isFollowup) {
+        next.city = "";
+        next.near = "";
+        next.propertyType = "";
+        next.minBudget = "";
+        next.maxBudget = "";
+        next.amenityIds = [];
+        next.petFriendly = undefined;
+      }
+      if (ai.property_type) next.propertyType = ai.property_type;
+      if (typeof ai.max_price === "number")
+        next.maxBudget = String(ai.max_price);
+      if (typeof ai.min_price === "number")
+        next.minBudget = String(ai.min_price);
+      if (ai.city) next.city = ai.city;
+      if (ai.near) next.near = ai.near;
+      if (typeof ai.pet_friendly === "boolean")
+        next.petFriendly = ai.pet_friendly;
+      if (Array.isArray(ai.amenities)) {
+        const newIds = amenityIdsForSignals(ai.amenities);
+        for (const id of newIds) {
+          if (!next.amenityIds.includes(id)) {
+            next.amenityIds.push(id);
+          }
+        }
+      }
+      return next;
+    },
+    [amenityIdsForSignals],
+  );
 
-    addMessage({ id: createId(), role: "user", content: text });
-    setInput("");
-    setIsThinking(true);
-    setHasResults(true);
+  const runLocalFallback = useCallback(
+    async (text: string) => {
+      const { amenityNames, filters: localPrefs } = buildLocalNotes(
+        text,
+      );
+      const merged: CombinedPreferences = { ...combinedPreferences };
+      merged.city = localPrefs.city;
+      merged.near = localPrefs.near;
+      if (localPrefs.propertyType) merged.propertyType = localPrefs.propertyType;
+      if (localPrefs.minBudget) merged.minBudget = localPrefs.minBudget;
+      if (localPrefs.maxBudget) merged.maxBudget = localPrefs.maxBudget;
+      if (!merged.amenityIds.length) merged.amenityIds = localPrefs.amenityIds;
 
-    const properties = await fetchApprovedProperties();
-    const parseResult = parseMessageToPreferences(text, amenities, properties);
+      setCombinedPreferences(merged);
+      setLastNotes(buildPreferenceSummary([], merged));
+      setLastAmenityNames(amenityNames);
 
-    if (parseResult.error) {
-      addMessage({
-        id: createId(),
-        role: "assistant",
-        content: parseResult.error,
-      });
-      setLastNotes(parseResult.notes);
-      setLastAmenityNames(parseResult.amenityNames);
-      setRecommendations([]);
+      const topMatches = await applyPreferencesAndSearch(merged);
+      setRecommendations(topMatches);
       setIsThinking(false);
-      return;
-    }
 
-    if (parseResult.notes.length === 0) {
-      addMessage({
-        id: createId(),
-        role: "assistant",
-        content:
-          "I could not detect specific preferences yet. Try adding a city, budget, property type, or amenity.",
-      });
-      setLastNotes([]);
-      setLastAmenityNames([]);
-      setRecommendations([]);
-      setIsThinking(false);
-      return;
-    }
+      return topMatches;
+    },
+    [
+      combinedPreferences,
+      buildLocalNotes,
+      applyPreferencesAndSearch,
+    ],
+  );
 
-    const scored = properties.map((property) =>
-      scoreProperty(property, parseResult.preferences),
-    );
-    const sorted = scored
-      .slice()
-      .sort((a, b) => b.score - a.score)
-      .filter((item) => item.score > 0);
-    const topMatches = sorted.slice(0, 5);
+  const handleSend = useCallback(
+    async () => {
+      const text = input.trim();
+      if (!text || isThinking) return;
+      setInput("");
+      setIsThinking(true);
+      setUseFallback(false);
+      setAiConfigError(null);
+      setHasResults(false);
+      focusComposer();
 
-    setLastNotes(parseResult.notes);
-    setLastAmenityNames(parseResult.amenityNames);
-    setRecommendations(topMatches);
-    setIsThinking(false);
+      setMessages((prev) => [
+        ...prev,
+        { id: createId(), role: "user", content: text },
+      ]);
 
-    if (topMatches.length === 0) {
-      addMessage({
-        id: createId(),
-        role: "assistant",
-        content:
-          "I could not find matches with those preferences. Try adjusting your budget, city, or amenities.",
-      });
-      return;
-    }
+      try {
+        const response = await fetch("/api/ai/parse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text }),
+        });
+        const aiResponse = (await response.json().catch(() =>
+          ({}),
+        )) as { intent?: string; skip_search?: boolean; filters?: AIParsedFilters };
 
-    addMessage({
-      id: createId(),
-      role: "assistant",
-      content: `I found ${topMatches.length} match${topMatches.length === 1 ? "" : "es"}. See the top recommendations below.`,
-    });
+        const isGreeting = /^(hi|hello|hey|good (morning|afternoon|evening)|pila|unsa|kumusta)[\s!.,]*$/i.test(text.replace(/\?/g, ""));
+        const isNonRental = [
+          "weather",
+          "game",
+          "recipe",
+          "joke",
+          "news",
+          "translate",
+          "definition",
+          "meaning",
+          "essay",
+          "code",
+          "program",
+          "script",
+        ].some((term) => text.toLowerCase().includes(term));
+        if (isGreeting || isNonRental) {
+          const reply =
+            isGreeting
+              ? "Hello! Tell me what rental you want and I'll search approved listings."
+              : "I only help with rental searches — please share a city, budget, or property type.";
+          setMessages((prev) => [
+            ...prev,
+            { id: createId(), role: "assistant", content: reply },
+          ]);
+          setIsThinking(false);
+          focusComposer();
+          return;
+        }
 
-    void logRecommendations(topMatches);
-  };
+        const isFollowup =
+          recommendations.length > 0 ||
+          combinedPreferences.city !== "" ||
+          combinedPreferences.maxBudget !== "";
+
+        if (aiResponse.skip_search || aiResponse.intent === "general_chat") {
+          const reply =
+            aiResponse.filters && typeof aiResponse.filters === "object"
+              ? `I only search rentals. Your filters: ${buildPreferenceSummary([], combinedPreferences).join(", ") || "none set yet."}`
+              : `I only search rentals. To get started, share a city, budget, or property type.`;
+          setMessages((prev) => [
+            ...prev,
+            { id: createId(), role: "assistant", content: reply },
+          ]);
+          setIsThinking(false);
+          focusComposer();
+          return;
+        }
+
+        const filters =
+          aiResponse.filters && typeof aiResponse.filters === "object"
+            ? (aiResponse.filters as AIParsedFilters)
+            : {};
+
+        const activePrefs = isFollowup
+          ? mergeAiIntoPreferences(combinedPreferences, filters, true)
+          : mergeAiIntoPreferences(combinedPreferences, filters, false);
+
+        setCombinedPreferences(activePrefs);
+        setLastNotes(buildPreferenceSummary([], activePrefs));
+        if (Array.isArray(filters.amenities)) {
+          setLastAmenityNames(
+            filters.amenities.filter(
+              (x): x is string => typeof x === "string",
+            ),
+          );
+        }
+
+        const topMatches = await applyPreferencesAndSearch(activePrefs);
+        setRecommendations(topMatches);
+        setHasResults(topMatches.length > 0);
+        setIsThinking(false);
+
+        const status = [
+          activePrefs.propertyType ? `Type: ${activePrefs.propertyType}` : null,
+          activePrefs.maxBudget
+            ? `Max: ${formatPrice(parseNumber(activePrefs.maxBudget))}`
+            : null,
+          activePrefs.city ? `City: ${activePrefs.city}` : null,
+          activePrefs.near ? `Near: ${activePrefs.near}` : null,
+          activePrefs.petFriendly ? "Pet friendly" : null,
+        ]
+          .filter(Boolean)
+          .join(" • ");
+
+        const content =
+          topMatches.length === 0
+            ? `No approved rentals matched. Try adjusting: ${status || "add more filters like city, budget, or property type."}`
+            : `Found ${topMatches.length} approved rental${topMatches.length === 1 ? "" : "s"} matching: ${status}.`;
+
+        setMessages((prev) => [
+          ...prev,
+          { id: createId(), role: "assistant", content },
+        ]);
+        focusComposer();
+        void logRecommendations(topMatches);
+      } catch {
+        setUseFallback(true);
+        const topMatches = await runLocalFallback(text);
+        const content = topMatches.length
+          ? `Found ${topMatches.length} match${topMatches.length === 1 ? "" : "es"} (fallback mode).`
+          : "No matches right now. Try a different city or budget.";
+        setMessages((prev) => [
+          ...prev,
+          { id: createId(), role: "assistant", content },
+        ]);
+        setHasResults(topMatches.length > 0);
+        focusComposer();
+        void logRecommendations(topMatches);
+      }
+    },
+    [
+      input,
+      isThinking,
+      focusComposer,
+      combinedPreferences,
+      recommendations,
+      mergeAiIntoPreferences,
+      applyPreferencesAndSearch,
+      runLocalFallback,
+      logRecommendations,
+    ],
+  );
+
+  const handleComposerKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key !== "Enter" || event.shiftKey) return;
+      event.preventDefault();
+      void handleSend();
+    },
+    [handleSend],
+  );
 
   if (loading) {
     return (
-      <AppShell navItems={renterNavItems} title="Rental Marketplace">
+      <AppShell navItems={renterNavItems} title="Nestora">
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="space-y-3">
             <Skeleton className="h-8 w-72" />
@@ -690,46 +967,67 @@ export default function RenterAssistantPage() {
   return (
     <AppShell
       navItems={renterNavItems}
-      title="Rental Marketplace"
+      title="Nestora"
       topNavAction={email ? <Badge>{email}</Badge> : null}
       sidebarFooter={<LogoutButton />}
-      className="pb-6"
+      className="overflow-x-hidden pb-6"
     >
-      <div className="mx-auto max-w-7xl space-y-5">
+      <div className="mx-auto w-full max-w-7xl space-y-5 overflow-x-hidden">
         <PageHeader
-          eyebrow="Premium discovery assistant"
+          eyebrow="Intelligent discovery"
           title="Describe the rental you want"
-          description="The assistant reads your message, extracts known rental signals, and ranks approved properties with the existing rule-based matcher."
+          description="Type naturally in English, Taglish, or Bisaya. The assistant understands rental intent and extracts filters automatically from approved listings only."
           actions={
             <Badge variant="premium" className="px-3 py-1">
-              Rule-based assistant
+              <Bot className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              Intent-aware assistant
             </Badge>
           }
         />
 
         {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
+        {useFallback ? (
+          <AlertMessage variant="warning">
+            <WifiOff className="mr-2 h-4 w-4 inline-block" aria-hidden="true" />
+            AI service unavailable. Using local fallback matcher.
+          </AlertMessage>
+        ) : null}
+        {aiConfigError ? (
+          <AlertMessage variant="info">
+            <AlertTriangle
+              className="mr-2 h-4 w-4 inline-block"
+              aria-hidden="true"
+            />
+            {aiConfigError}
+          </AlertMessage>
+        ) : null}
+        {assistantError ? (
+          <AlertMessage variant="danger">{assistantError}</AlertMessage>
+        ) : null}
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <Card className="overflow-hidden">
-            <CardHeader className="border-b border-neutral-200 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <CardTitle>Discovery chat</CardTitle>
+        <div className="grid w-full min-w-0 gap-5 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_320px]">
+          <Card className="flex h-[calc(100vh-15rem)] min-h-[620px] w-full min-w-0 max-w-full flex-col overflow-hidden xl:h-[calc(100vh-13rem)]">
+            <CardHeader className="shrink-0 border-b border-neutral-200 p-4">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle>Rental assistant</CardTitle>
                   <p className="mt-1 text-sm leading-6 text-neutral-500">
-                    Use natural phrasing; no external AI services are called.
+                    Ask for a rental and I will search approved listings. I only
+                    help with rentals.
                   </p>
                 </div>
-                <Badge variant="info">Local rules</Badge>
+                <Badge variant="success" className="shrink-0 px-3 py-1.5 text-xs">
+                  Only rental search
+                </Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-5">
+            <CardContent className="flex min-h-0 flex-1 flex-col p-0">
               <div
                 aria-live="polite"
-                className="min-h-[420px] max-h-[560px] space-y-4 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4"
+                className="flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto bg-neutral-50 p-4 sm:p-5"
               >
                 {messages.map((message) => {
                   const isAssistant = message.role === "assistant";
-
                   return (
                     <article
                       key={message.id}
@@ -739,91 +1037,115 @@ export default function RenterAssistantPage() {
                       )}
                     >
                       {isAssistant ? (
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-neutral-950 text-white">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500 text-white shadow-sm shadow-violet-950/20">
                           <Bot className="h-4 w-4" aria-hidden="true" />
                         </div>
                       ) : null}
                       <div
                         className={cn(
-                          "max-w-[82%] rounded-lg border px-4 py-3 text-sm leading-6",
+                          "min-w-0 max-w-[82%] overflow-hidden rounded-xl border px-4 py-3 text-sm leading-6 shadow-sm",
                           isAssistant
                             ? "border-neutral-200 bg-white text-neutral-700"
-                            : "border-neutral-950 bg-neutral-950 text-white",
+                            : "border-violet-500 bg-violet-500 text-white",
                         )}
                       >
                         <p className="mb-1 text-xs font-medium uppercase opacity-60">
                           {isAssistant ? "Assistant" : "You"}
                         </p>
-                        <p>{message.content}</p>
+                        <p className="whitespace-pre-wrap break-words">{message.content}</p>
                       </div>
                     </article>
                   );
                 })}
                 {isThinking ? (
-                  <div className="flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-500">
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    Matching approved rentals...
+                  <div className="flex justify-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500 text-white shadow-sm shadow-violet-950/20">
+                      <Bot className="h-4 w-4" aria-hidden="true" />
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-500 shadow-sm">
+                      <Loader2
+                        className="h-4 w-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Understanding your request...
+                    </div>
                   </div>
                 ) : null}
+                <div ref={chatEndRef} />
               </div>
 
-              {assistantError ? (
-                <AlertMessage variant="danger">{assistantError}</AlertMessage>
-              ) : null}
-
-              <div className="rounded-lg border border-neutral-200 bg-white p-4">
-                <p className="text-sm font-medium text-neutral-950">
-                  Prompt suggestions
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
+              <div className="shrink-0 overflow-x-hidden border-t border-neutral-200 bg-white p-3 sm:p-4">
+                <div className="mb-3 flex flex-wrap gap-2">
                   {EXAMPLE_PROMPTS.map((prompt) => (
-                    <Button
+                    <button
                       key={prompt}
                       type="button"
-                      variant="secondary"
-                      onClick={() => setInput(prompt)}
+                      onClick={() => {
+                        setInput(prompt);
+                        focusComposer();
+                      }}
                       disabled={isThinking}
-                      className="h-auto max-w-full justify-start whitespace-normal py-2 text-left leading-5"
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                      <MessageSquare
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
                       {prompt}
-                    </Button>
+                    </button>
                   ))}
                 </div>
-              </div>
 
-              <form onSubmit={onSend} className="space-y-3">
-                <label
-                  htmlFor="assistant-message"
-                  className="text-sm font-medium text-neutral-950"
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleSend();
+                  }}
+                  className="w-full rounded-2xl border border-neutral-200 bg-white p-2 shadow-sm focus-within:border-violet-300 focus-within:ring-2 focus-within:ring-violet-500/10"
                 >
-                  Your rental brief
-                </label>
-                <Textarea
-                  id="assistant-message"
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  placeholder="e.g. apartment in Cabadbaran under 5000 with WiFi"
-                  rows={4}
-                />
-                <Button type="submit" disabled={isThinking} className="w-full">
-                  {isThinking ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Send className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  {isThinking ? "Matching..." : "Find matches"}
-                </Button>
-              </form>
+                  <label htmlFor="assistant-message" className="sr-only">
+                    Message rental assistant
+                  </label>
+                  <div className="flex min-w-0 items-end gap-2">
+                    <Textarea
+                      ref={composerRef}
+                      id="assistant-message"
+                      value={input}
+                      onChange={(event) => setInput(event.target.value)}
+                      onKeyDown={handleComposerKeyDown}
+                      disabled={isThinking}
+                      placeholder="Message the rental assistant..."
+                      rows={2}
+                      className="min-h-12 min-w-0 max-h-40 resize-none border-0 px-2 py-2 shadow-none focus:border-transparent focus:ring-0"
+                    />
+                    <Button
+                      type="submit"
+                      size="icon"
+                      disabled={isThinking || input.trim().length === 0}
+                      aria-label={isThinking ? "Matching rentals" : "Send message"}
+                      className="mb-1 shrink-0 rounded-full"
+                    >
+                      {isThinking ? (
+                        <Loader2
+                          className="h-4 w-4 animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Send className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </div>
             </CardContent>
           </Card>
 
-          <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          <div className="min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start">
             <Card>
               <CardHeader className="p-4 pb-0">
                 <CardTitle>Parsed preferences</CardTitle>
                 <p className="text-sm leading-6 text-neutral-500">
-                  Signals detected by the current rule parser.
+                  Filters extracted by the assistant from your last message.
                 </p>
               </CardHeader>
               <CardContent className="p-4">
@@ -866,10 +1188,11 @@ export default function RenterAssistantPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight text-neutral-950">
-                Assistant picks
+                Matching rentals
               </h2>
               <p className="text-sm leading-6 text-neutral-500">
-                Top approved rentals returned by the existing matching logic.
+                Real approved rentals returned from the database. No invented
+                results.
               </p>
             </div>
             <Badge variant="success">Approved only</Badge>
@@ -885,7 +1208,7 @@ export default function RenterAssistantPage() {
               title={
                 hasResults
                   ? "No approved rentals matched that request"
-                  : "Assistant matches will appear here"
+                  : "Matches will appear here"
               }
               description={
                 hasResults
@@ -898,26 +1221,48 @@ export default function RenterAssistantPage() {
             <div className="grid gap-5 xl:grid-cols-2">
               {recommendations.map((item, index) => {
                 const { property, reasons, missing, scorePercent } = item;
-                const amenityNamesForProperty = (property.property_amenities ?? [])
+                const amenityNamesForProperty = (
+                  property.property_amenities ?? []
+                )
                   .map((amenity) => amenity.amenities?.name)
                   .filter((name): name is string => Boolean(name));
+                const cover =
+                  property.property_images?.find((image) => image.is_cover) ??
+                  property.property_images?.[0];
+                const description = property.description?.trim();
 
                 return (
                   <article
                     key={property.id}
-                    className="rounded-lg border border-neutral-200 bg-white p-5"
+                    className="overflow-hidden rounded-lg border border-neutral-200 bg-white"
                   >
+                    <div className="aspect-[4/3] bg-neutral-100 sm:aspect-[16/7]">
+                      {cover?.storage_path ? (
+                        <img
+                          src={cover.storage_path}
+                          alt={property.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-neutral-500">
+                          <Building2 className="h-10 w-10" aria-hidden="true" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className="text-xs font-medium uppercase text-neutral-400">
-                          Assistant pick #{index + 1}
+                          Match #{index + 1}
                         </p>
                         <h3 className="mt-1 text-lg font-semibold tracking-tight text-neutral-950">
                           {property.title}
                         </h3>
                         <p className="mt-2 flex items-center gap-1.5 text-sm text-neutral-500">
                           <MapPin className="h-4 w-4" aria-hidden="true" />
-                          <span>{formatLocation(property) || "Location unavailable"}</span>
+                          <span>
+                            {formatLocation(property) || "Location unavailable"}
+                          </span>
                         </p>
                       </div>
                       <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-center">
@@ -927,6 +1272,11 @@ export default function RenterAssistantPage() {
                         <p className="text-xs text-neutral-500">match</p>
                       </div>
                     </div>
+                    {description ? (
+                      <p className="mt-4 line-clamp-3 text-sm leading-6 text-neutral-600">
+                        {description}
+                      </p>
+                    ) : null}
 
                     <div className="mt-5 grid gap-3 sm:grid-cols-2">
                       <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
@@ -951,7 +1301,7 @@ export default function RenterAssistantPage() {
                           Beds
                         </p>
                         <p className="mt-1 font-medium text-neutral-800">
-                          {property.bedrooms}
+                          {formatCount(property.bedrooms)}
                         </p>
                       </div>
                       <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
@@ -960,7 +1310,7 @@ export default function RenterAssistantPage() {
                           Baths
                         </p>
                         <p className="mt-1 font-medium text-neutral-800">
-                          {property.bathrooms}
+                          {formatCount(property.bathrooms)}
                         </p>
                       </div>
                     </div>
@@ -969,10 +1319,11 @@ export default function RenterAssistantPage() {
                       <div>
                         <p className="font-medium text-neutral-950">Details</p>
                         <p className="mt-1 leading-6 text-neutral-600">
-                          Deposit {property.deposit} / Advance {property.advance}
+                          Deposit {formatPrice(property.deposit)} / Advance{" "}
+                          {formatPrice(property.advance)}
                         </p>
                         <p className="leading-6 text-neutral-600">
-                          {property.area_sqm} sqm / Available{" "}
+                          {formatArea(property.area_sqm)} / Available{" "}
                           {formatDate(property.available_from)}
                         </p>
                       </div>
@@ -992,6 +1343,10 @@ export default function RenterAssistantPage() {
                         <div className="mt-2 flex flex-wrap gap-2">
                           {reasons.map((reason) => (
                             <Badge key={reason} variant="success">
+                              <CheckCircle2
+                                className="mr-1 h-3 w-3"
+                                aria-hidden="true"
+                              />
                               {reason}
                             </Badge>
                           ))}
@@ -1014,6 +1369,7 @@ export default function RenterAssistantPage() {
                         </div>
                       </div>
                     </div>
+                    </div>
                   </article>
                 );
               })}
@@ -1021,8 +1377,20 @@ export default function RenterAssistantPage() {
           )}
         </section>
 
-        <section aria-label="Assistant signals" className="grid gap-3 md:grid-cols-3">
+        <section
+          aria-label="Assistant signals"
+          className="grid gap-3 border-t border-neutral-200 pt-4 md:grid-cols-4"
+        >
           {[
+            {
+              label: "Mode",
+              value: useFallback ? "Fallback" : "AI",
+              icon: useFallback ? (
+                <WifiOff className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Zap className="h-4 w-4" aria-hidden="true" />
+              ),
+            },
             {
               label: "Signals",
               value: lastNotes.length,

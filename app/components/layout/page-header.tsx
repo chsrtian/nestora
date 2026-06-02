@@ -13,7 +13,7 @@ export function PageHeader({ title, description, eyebrow, actions, className }: 
   return (
     <div className={cn("flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between", className)}>
       <div>
-        {eyebrow ? <p className="mb-2 text-sm font-medium text-neutral-500">{eyebrow}</p> : null}
+        {eyebrow ? <p className="mb-2 text-sm font-semibold text-violet-700">{eyebrow}</p> : null}
         <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">{title}</h1>
         {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-500">{description}</p> : null}
       </div>

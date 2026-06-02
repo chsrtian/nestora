@@ -227,12 +227,12 @@ export default function NewPropertyPage() {
         title: form.title.trim(),
         description: form.description.trim() || null,
         property_type: form.property_type.trim() || null,
-        price: form.price ? Number(form.price) : 0,
-        deposit: form.deposit ? Number(form.deposit) : 0,
-        advance: form.advance ? Number(form.advance) : 0,
-        bedrooms: form.bedrooms ? Number(form.bedrooms) : 0,
-        bathrooms: form.bathrooms ? Number(form.bathrooms) : 0,
-        area_sqm: form.area_sqm ? Number(form.area_sqm) : 0,
+        price: form.price ? Number(form.price) : null,
+        deposit: form.deposit ? Number(form.deposit) : null,
+        advance: form.advance ? Number(form.advance) : null,
+        bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
+        bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
+        area_sqm: form.area_sqm ? Number(form.area_sqm) : null,
         address_line: form.address_line.trim() || null,
         city: form.city.trim(),
         state: form.state.trim() || null,
@@ -345,10 +345,10 @@ export default function NewPropertyPage() {
         <form onSubmit={onSubmit} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-5">
             <Card className="overflow-hidden shadow-sm">
-              <div className="h-1 bg-[#ff385c]" />
+              <div className="h-1 bg-violet-500" />
               <CardHeader>
                 <div className="flex items-start gap-3">
-                  <div className="rounded-md bg-neutral-950 p-2 text-white">
+                  <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                     <Building2 className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>
@@ -406,20 +406,20 @@ export default function NewPropertyPage() {
             <Card className="shadow-sm">
               <CardHeader>
                 <div className="flex items-start gap-3">
-                  <div className="rounded-md bg-neutral-950 p-2 text-white">
+                  <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                     <Wallet className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>
                     <Badge variant="premium">Pricing</Badge>
                     <CardTitle className="mt-3 text-lg">Set move-in costs</CardTitle>
                     <p className="mt-1 text-sm leading-6 text-neutral-500">
-                      Set rent and move-in cash requirements.
+                      Set rent and move-in cash requirements in PHP.
                     </p>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-3">
-                <FormField label="Price" htmlFor="price">
+                <FormField label="Price (PHP)" htmlFor="price">
                   <Input
                     id="price"
                     type="number"
@@ -431,7 +431,7 @@ export default function NewPropertyPage() {
                     className="h-11"
                   />
                 </FormField>
-                <FormField label="Deposit" htmlFor="deposit">
+                <FormField label="Deposit (PHP)" htmlFor="deposit">
                   <Input
                     id="deposit"
                     type="number"
@@ -443,7 +443,7 @@ export default function NewPropertyPage() {
                     className="h-11"
                   />
                 </FormField>
-                <FormField label="Advance" htmlFor="advance">
+                <FormField label="Advance (PHP)" htmlFor="advance">
                   <Input
                     id="advance"
                     type="number"
@@ -461,7 +461,7 @@ export default function NewPropertyPage() {
             <Card className="shadow-sm">
               <CardHeader>
                 <div className="flex items-start gap-3">
-                  <div className="rounded-md bg-neutral-950 p-2 text-white">
+                  <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                     <Ruler className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>
@@ -514,7 +514,7 @@ export default function NewPropertyPage() {
             <Card className="shadow-sm">
               <CardHeader>
                 <div className="flex items-start gap-3">
-                  <div className="rounded-md bg-neutral-950 p-2 text-white">
+                  <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                     <MapPin className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>
@@ -598,7 +598,7 @@ export default function NewPropertyPage() {
             <Card className="shadow-sm">
               <CardHeader>
                 <div className="flex items-start gap-3">
-                  <div className="rounded-md bg-neutral-950 p-2 text-white">
+                  <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                     <Sparkles className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div>
@@ -631,7 +631,7 @@ export default function NewPropertyPage() {
                             className={cn(
                               "inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
                               selected
-                                ? "border-neutral-950 bg-neutral-950 text-white shadow-sm"
+                                ? "border-violet-200 bg-violet-50 text-violet-700 shadow-sm"
                                 : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50",
                             )}
                           >
@@ -693,7 +693,7 @@ export default function NewPropertyPage() {
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-[#ff385c] hover:bg-[#e03150]"
+                  className="w-full"
                 >
                   {submitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

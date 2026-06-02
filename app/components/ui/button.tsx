@@ -5,9 +5,9 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
 type ButtonSize = "sm" | "md" | "lg" | "icon";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "border-neutral-950 bg-neutral-950 text-white hover:bg-black",
-  secondary: "border-neutral-200 bg-white text-neutral-950 hover:border-neutral-300 hover:bg-neutral-50",
-  ghost: "border-transparent bg-transparent text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950",
+  primary: "border-violet-600 bg-violet-600 text-white shadow-sm shadow-violet-950/10 hover:border-violet-700 hover:bg-violet-700",
+  secondary: "border-neutral-200 bg-white text-neutral-950 shadow-sm hover:border-violet-200 hover:bg-violet-50/60 hover:text-violet-700",
+  ghost: "border-transparent bg-transparent text-neutral-700 hover:bg-violet-50/70 hover:text-violet-700",
   danger: "border-red-200 bg-white text-red-700 hover:border-red-300 hover:bg-red-50",
   success: "border-green-200 bg-white text-green-700 hover:border-green-300 hover:bg-green-50",
 };
@@ -29,8 +29,8 @@ export function buttonClasses({
   className?: string;
 } = {}) {
   return cn(
-    "inline-flex items-center justify-center rounded-md border font-medium transition-colors",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2",
+    "inline-flex items-center justify-center rounded-xl border font-medium transition-colors",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2",
     "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60",
     variants[variant],
     sizes[size],

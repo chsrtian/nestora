@@ -12,10 +12,10 @@ type FilterPanelProps = {
 
 export function FilterPanel({ title = "Filters", description, children, actions, className }: FilterPanelProps) {
   return (
-    <section className={cn("rounded-lg border border-neutral-200 bg-white p-5", className)}>
+    <section className={cn("rounded-xl border border-neutral-200/80 bg-white p-5 shadow-sm", className)}>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-neutral-600">
+          <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
             <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           </div>
           <div>

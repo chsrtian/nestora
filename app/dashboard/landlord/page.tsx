@@ -27,12 +27,13 @@ import { StatusBadge } from "@/app/components/ui/status-badge";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
+import { formatPriceInPHP } from "@/lib/currency";
 
 type Property = {
   id: string;
   title: string;
   city: string;
-  price: number;
+  price: number | null;
   status: string;
   created_at: string;
 };
@@ -91,12 +92,8 @@ const landlordNavItems: SidebarNavItem[] = [
   },
 ];
 
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+function formatPrice(value: number | null) {
+  return formatPriceInPHP(value);
 }
 
 function formatDate(value: string) {
@@ -370,7 +367,6 @@ export default function LandlordDashboardPage() {
               type="button"
               onClick={() => router.push("/dashboard/landlord/properties/new")}
               size="lg"
-              className="bg-[#ff385c] hover:bg-[#e03150]"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Post property
@@ -415,7 +411,7 @@ export default function LandlordDashboardPage() {
                     {stat.value}
                   </p>
                 </div>
-                <div className="rounded-md bg-neutral-950 p-2 text-white">
+                <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                   {stat.icon}
                 </div>
               </div>
@@ -476,7 +472,7 @@ export default function LandlordDashboardPage() {
                   >
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="flex min-w-0 gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[#ff385c]/10 text-[#ff385c]">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700">
                           <Building2 className="h-6 w-6" aria-hidden="true" />
                         </div>
                         <div className="min-w-0">
@@ -552,7 +548,7 @@ export default function LandlordDashboardPage() {
                       Keep your host profile trustworthy for renters reviewing your listings.
                     </p>
                   </div>
-                  <div className="rounded-lg bg-neutral-950 p-2 text-white">
+                  <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                     <ShieldCheck className="h-5 w-5" aria-hidden="true" />
                   </div>
                 </div>

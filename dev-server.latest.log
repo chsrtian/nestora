@@ -1,0 +1,18 @@
+
+> web@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.100.33:3000
+- Environments: .env.local
+✓ Ready in 8.6s
+Creating turbopack project { dir: 'C:\\Users\\PC\\ideaas\\web', testMode: true }
+
+○ Compiling /register ...
+ GET /register 200 in 17.9s (next.js: 10.8s, application-code: 7.1s)
+ GET /register 200 in 21.9s (next.js: 12.6s, application-code: 9.3s)
+ GET /login 200 in 21.9s (next.js: 15.5s, application-code: 6.4s)
+ GET /dashboard/renter/map 200 in 23.5s (next.js: 23.0s, proxy.ts: 47ms, application-code: 430ms)
+ HEAD /register 200 in 400ms (next.js: 11ms, application-code: 390ms)
+ GET /login 200 in 185ms (next.js: 28ms, application-code: 157ms)

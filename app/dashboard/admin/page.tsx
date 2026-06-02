@@ -27,13 +27,14 @@ import { StatusBadge } from "@/app/components/ui/status-badge";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
+import { formatPriceInPHP } from "@/lib/currency";
 
 type PendingProperty = {
   id: string;
   landlord_id: string;
   title: string;
   city: string | null;
-  price: number;
+  price: number | null;
   status: string;
   created_at: string;
 };
@@ -66,12 +67,8 @@ const adminNavItems: SidebarNavItem[] = [
   { href: "/dashboard/admin", label: "Trust center", icon: ShieldCheck },
 ];
 
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+function formatPrice(value: number | null) {
+  return formatPriceInPHP(value);
 }
 
 function formatDate(value: string) {
@@ -317,7 +314,7 @@ export default function AdminDashboardPage() {
                   {pendingProperties.length}
                 </p>
               </div>
-              <div className="rounded-md bg-neutral-950 p-2 text-white">
+              <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                 <Building2 className="h-4 w-4" aria-hidden="true" />
               </div>
             </div>
@@ -337,7 +334,7 @@ export default function AdminDashboardPage() {
                   {pendingRequests.length}
                 </p>
               </div>
-              <div className="rounded-md bg-neutral-950 p-2 text-white">
+              <div className="rounded-xl border border-violet-100 bg-violet-50 p-2 text-violet-700">
                 <UserCheck className="h-4 w-4" aria-hidden="true" />
               </div>
             </div>

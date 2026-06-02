@@ -3,15 +3,43 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Home, KeyRound, Loader2 } from "lucide-react";
+import {
+  Building2,
+  Check,
+  KeyRound,
+  Loader2,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
+import { BrandLink, FooterCredit } from "@/app/components/brand/nestora-brand";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { AlertMessage } from "../components/ui/alert-message";
-import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
-import { FormField } from "../components/ui/form-field";
-import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
+
+const roleHighlights = [
+  {
+    title: "Renters",
+    description: "Browse approved rentals and send inquiries.",
+    icon: Search,
+  },
+  {
+    title: "Landlords",
+    description: "Manage listings and renter conversations.",
+    icon: Building2,
+  },
+  {
+    title: "Admin Review",
+    description: "Review listings before renter visibility.",
+    icon: ShieldCheck,
+  },
+];
+
+const trustItems = [
+  "Verified listings only",
+  "Admin-reviewed listings",
+  "Direct landlord contact",
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -88,74 +116,100 @@ export default function LoginPage() {
 
   if (checkingSession) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F7F7F5] px-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="space-y-5 p-6">
-            <Skeleton className="h-8 w-40" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
+      <main className="flex min-h-screen items-center justify-center bg-[#232321] px-5 text-white">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#2c2c2a] p-6 shadow-2xl shadow-black/20">
+          <div className="space-y-5">
+            <Skeleton className="h-8 w-40 bg-white/10" />
+            <Skeleton className="h-12 w-full bg-white/10" />
+            <Skeleton className="h-12 w-full bg-white/10" />
+            <Skeleton className="h-12 w-full bg-white/10" />
+          </div>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F7F5] text-neutral-950">
-      <header className="border-b border-neutral-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight text-neutral-950">
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-neutral-950 text-white">
-              <Home className="h-4 w-4" aria-hidden="true" />
-            </span>
-            Rental Marketplace
-          </Link>
-          <Link href="/register" className="text-sm font-medium text-neutral-600 hover:text-neutral-950">
+    <main className="min-h-screen bg-[#232321] text-white">
+      <header className="border-b border-white/10 bg-[#292927]/95 backdrop-blur">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
+          <BrandLink className="text-lg" />
+          <Link
+            href="/register"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-white/15 px-4 text-sm font-semibold text-white transition-colors hover:border-white/30 hover:bg-white/5 sm:px-5"
+          >
             Create account
           </Link>
         </div>
       </header>
 
-      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_440px] lg:px-8">
-        <div className="hidden lg:block">
-          <p className="text-sm font-medium text-neutral-500">Secure rental workspace</p>
-          <h1 className="mt-4 max-w-2xl text-5xl font-semibold tracking-tight text-neutral-950">
-            Sign in to manage your rental search or listings.
-          </h1>
-          <p className="mt-5 max-w-xl text-base leading-8 text-neutral-600">
-            One account for browsing approved rentals, sending inquiries, managing listings, and reviewing trust
-            workflows.
-          </p>
-          <div className="mt-8 grid max-w-xl grid-cols-3 gap-4 text-sm">
-            <div className="rounded-lg border border-neutral-200 bg-white p-4">
-              <p className="font-semibold text-neutral-950">Renters</p>
-              <p className="mt-1 text-neutral-500">Search and inquire.</p>
+      <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(99,91,255,0.18),transparent_34rem)]">
+        <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl items-center gap-10 px-5 py-12 sm:px-6 lg:grid-cols-[1fr_0.82fr] lg:px-8 lg:py-16">
+          <div>
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-violet-200 bg-violet-100 px-4 py-2 text-sm font-semibold text-violet-700">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Verified rental access
             </div>
-            <div className="rounded-lg border border-neutral-200 bg-white p-4">
-              <p className="font-semibold text-neutral-950">Landlords</p>
-              <p className="mt-1 text-neutral-500">Manage listings.</p>
+            <h1 className="mt-8 max-w-3xl text-5xl font-semibold leading-[1.03] tracking-tight text-white sm:text-6xl">
+              Sign in to continue your Nestora workflow.
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-8 text-stone-300 sm:text-lg">
+              One account connects renters, landlords, and review teams across
+              approved listings, inquiries, map browsing, and matching tools.
+            </p>
+
+            <div className="mt-8 grid gap-4 text-sm font-semibold text-stone-300 sm:grid-cols-3">
+              {trustItems.map((item) => (
+                <div key={item} className="flex items-center gap-3">
+                  <Check className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+                  <span>{item}</span>
+                </div>
+              ))}
             </div>
-            <div className="rounded-lg border border-neutral-200 bg-white p-4">
-              <p className="font-semibold text-neutral-950">Admin Review</p>
-              <p className="mt-1 text-neutral-500">Handled by authorized project admins.</p>
+
+            <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 md:grid-cols-3">
+              {roleHighlights.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <div key={item.title} className="bg-[#2a2a28] p-5">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <h2 className="mt-4 text-base font-semibold text-white">
+                      {item.title}
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-stone-300">
+                      {item.description}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
 
-        <Card className="w-full shadow-sm">
-          <CardContent className="p-6 sm:p-8">
+          <div className="rounded-2xl border border-white/10 bg-[#2c2c2a] p-5 shadow-2xl shadow-black/20 sm:p-8">
             <div className="mb-8">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-neutral-950 text-white">
-                <KeyRound className="h-5 w-5" aria-hidden="true" />
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-violet-500 text-white shadow-sm shadow-violet-950/30">
+                <KeyRound className="h-6 w-6" aria-hidden="true" />
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight text-neutral-950">Welcome back</h1>
-              <p className="mt-2 text-sm leading-6 text-neutral-500">Sign in to your rental marketplace account.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-200">
+                Secure sign in
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">
+                Welcome back
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-stone-300">
+                Sign in to your Nestora account.
+              </p>
             </div>
 
             <form onSubmit={onSubmit} className="space-y-5">
-              <FormField label="Email" htmlFor="email">
-                <Input
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-stone-100">
+                  Email
+                </label>
+                <input
                   id="email"
                   type="email"
                   name="email"
@@ -164,10 +218,22 @@ export default function LoginPage() {
                   required
                   autoComplete="email"
                   placeholder="you@example.com"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-base text-white outline-none transition placeholder:text-stone-500 focus:border-violet-300/70 focus:ring-2 focus:ring-violet-400/20"
                 />
-              </FormField>
-              <FormField label="Password" htmlFor="password">
-                <Input
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="password" className="block text-sm font-semibold text-stone-100">
+                    Password
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm font-semibold text-violet-300 hover:text-violet-100"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <input
                   id="password"
                   type="password"
                   name="password"
@@ -176,12 +242,17 @@ export default function LoginPage() {
                   required
                   autoComplete="current-password"
                   placeholder="Enter your password"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 text-base text-white outline-none transition placeholder:text-stone-500 focus:border-violet-300/70 focus:ring-2 focus:ring-violet-400/20"
                 />
-              </FormField>
-              <Button type="submit" disabled={submitting} className="w-full">
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white px-5 text-sm font-semibold text-neutral-950 transition-colors hover:bg-stone-100 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                 {submitting ? "Signing in..." : "Sign in"}
-              </Button>
+              </button>
             </form>
 
             {error ? (
@@ -190,15 +261,18 @@ export default function LoginPage() {
               </AlertMessage>
             ) : null}
 
-            <p className="mt-6 text-center text-sm text-neutral-500">
+            <p className="mt-6 text-center text-sm text-stone-300">
               No account?{" "}
-              <Link href="/register" className="font-medium text-neutral-950 hover:underline">
+              <Link href="/register" className="font-semibold text-violet-300 hover:text-violet-100">
                 Create one
               </Link>
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </section>
+      <footer className="bg-[#232321] px-5 py-4 text-center">
+        <FooterCredit theme="dark" />
+      </footer>
     </main>
   );
 }

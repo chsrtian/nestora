@@ -2,7 +2,7 @@ import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "./utils";
 
 export function Card({ className, ...props }: ComponentPropsWithoutRef<"div">) {
-  return <div className={cn("rounded-lg border border-neutral-200 bg-white", className)} {...props} />;
+  return <div className={cn("rounded-xl border border-neutral-200/80 bg-white shadow-sm", className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: ComponentPropsWithoutRef<"div">) {

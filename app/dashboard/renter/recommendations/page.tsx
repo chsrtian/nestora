@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Bath,
-  BedDouble,
   Bot,
   Building2,
   Check,
@@ -14,21 +12,18 @@ import {
   Map,
   MapPin,
   RotateCcw,
-  Search,
+  SlidersHorizontal,
   Sparkles,
   Star,
   Target,
 } from "lucide-react";
 import { AppShell } from "@/app/components/layout/app-shell";
 import type { SidebarNavItem } from "@/app/components/layout/sidebar-nav";
-import { PageHeader } from "@/app/components/layout/page-header";
 import LogoutButton from "@/app/components/logout-button";
 import { AlertMessage } from "@/app/components/ui/alert-message";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { EmptyState } from "@/app/components/ui/empty-state";
-import { FilterPanel } from "@/app/components/ui/filter-panel";
 import { FormField } from "@/app/components/ui/form-field";
 import { Input } from "@/app/components/ui/input";
 import { Skeleton } from "@/app/components/ui/skeleton";
@@ -36,6 +31,7 @@ import { cn } from "@/app/components/ui/utils";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
+import { formatPriceInPHP } from "@/lib/currency";
 
 type Amenity = {
   id: string;
@@ -55,16 +51,17 @@ type Property = {
   city: string | null;
   state: string | null;
   country: string | null;
-  price: number;
-  deposit: number;
-  advance: number;
-  bedrooms: number;
-  bathrooms: number;
-  area_sqm: number;
+  price: number | null;
+  deposit: number | null;
+  advance: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  area_sqm: number | null;
   available_from: string | null;
   lat: number | null;
   lng: number | null;
   property_amenities?: PropertyAmenity[] | null;
+  property_images?: { storage_path: string; is_cover: boolean }[] | null;
 };
 
 type EmbeddedOne<T> = T | T[] | null;
@@ -73,8 +70,9 @@ type PropertyAmenityRow = Omit<PropertyAmenity, "amenities"> & {
   amenities: EmbeddedOne<PropertyAmenity["amenities"]>;
 };
 
-type PropertyRow = Omit<Property, "property_amenities"> & {
+type PropertyRow = Omit<Property, "property_amenities" | "property_images"> & {
   property_amenities?: PropertyAmenityRow[] | null;
+  property_images?: { storage_path: string; is_cover: boolean }[] | null;
 };
 
 type Preferences = {
@@ -140,20 +138,12 @@ const parseNumber = (value: string) => {
 
 const toRadians = (value: number) => (value * Math.PI) / 180;
 
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+function formatPrice(value: number | null) {
+  return formatPriceInPHP(value);
 }
 
 function formatLocation(property: Property) {
   return [property.city, property.state, property.country].filter(Boolean).join(", ");
-}
-
-function formatDate(value: string | null) {
-  return value ? new Date(value).toLocaleDateString() : "Not specified";
 }
 
 const haversineKm = (
@@ -190,6 +180,7 @@ function normalizeProperties(rows: PropertyRow[]): Property[] {
       ...amenity,
       amenities: normalizeEmbeddedOne(amenity.amenities),
     })) ?? null,
+    property_images: property.property_images ?? null,
   }));
 }
 
@@ -206,13 +197,15 @@ const scoreProperty = (
 
   let budgetScore = 0;
   if (budgetProvided) {
-    const meetsMin = minBudget === null || property.price >= minBudget;
-    const meetsMax = maxBudget === null || property.price <= maxBudget;
-    if (meetsMin && meetsMax) {
+    const price = property.price;
+    const hasPrice = typeof price === "number";
+    const meetsMin = hasPrice && (minBudget === null || price >= minBudget);
+    const meetsMax = hasPrice && (maxBudget === null || price <= maxBudget);
+    if (hasPrice && meetsMin && meetsMax) {
       budgetScore = BUDGET_POINTS;
       reasons.push("Within budget");
     } else {
-      missing.push("Budget preference not met");
+      missing.push(hasPrice ? "Budget preference not met" : "Price not listed");
     }
   } else {
     budgetScore = BUDGET_POINTS * NEUTRAL_FACTOR;
@@ -421,6 +414,35 @@ export default function RenterRecommendationsPage() {
 
   const topScore = recommendations[0]?.scorePercent ?? null;
 
+  const preferenceSummary = useMemo(() => {
+    const items: string[] = [];
+    const city = preferences.city.trim();
+    const type = preferences.propertyType.trim();
+    const minBudget = preferences.minBudget.trim();
+    const maxBudget = preferences.maxBudget.trim();
+    const minBudgetValue = parseNumber(preferences.minBudget);
+    const maxBudgetValue = parseNumber(preferences.maxBudget);
+    const maxDistance = preferences.maxDistanceKm.trim();
+
+    if (city) items.push(city);
+    if (minBudget || maxBudget) {
+      items.push(
+        `${minBudgetValue !== null ? formatPrice(minBudgetValue) : "Any"}-${maxBudgetValue !== null ? formatPrice(maxBudgetValue) : "no limit"}`,
+      );
+    }
+    if (type) items.push(type);
+    items.push(...selectedAmenityNames);
+    if (
+      preferences.preferredLat.trim() &&
+      preferences.preferredLng.trim() &&
+      maxDistance
+    ) {
+      items.push(`Within ${maxDistance} km`);
+    }
+
+    return items;
+  }, [preferences, selectedAmenityNames]);
+
   const onPreferenceChange = (key: keyof Preferences, value: string) => {
     setPreferences((prev) => ({ ...prev, [key]: value }));
   };
@@ -469,7 +491,7 @@ export default function RenterRecommendationsPage() {
     const { data, error: propertiesError } = await client
       .from("properties")
       .select(
-        "id, title, description, property_type, city, state, country, price, deposit, advance, bedrooms, bathrooms, area_sqm, available_from, lat, lng, property_amenities(amenity_id, amenities(name))",
+        "id, title, description, property_type, city, state, country, price, deposit, advance, bedrooms, bathrooms, area_sqm, available_from, lat, lng, property_images(storage_path, is_cover), property_amenities(amenity_id, amenities(name))",
       )
       .eq("status", "approved");
 
@@ -548,28 +570,25 @@ export default function RenterRecommendationsPage() {
 
   if (loading) {
     return (
-      <AppShell navItems={renterNavItems} title="Rental Marketplace">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <AppShell navItems={renterNavItems} title="Nestora">
+        <div className="mx-auto max-w-[1600px] space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-80" />
+              <Skeleton className="h-5 w-[34rem] max-w-full" />
+            </div>
+            <Skeleton className="h-10 w-44" />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+          <Skeleton className="h-[460px] w-full" />
+          <Skeleton className="h-20 w-full" />
           <div className="space-y-3">
-            <Skeleton className="h-8 w-72" />
-            <Skeleton className="h-5 w-[34rem] max-w-full" />
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
-          </div>
-          <Card>
-            <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </CardContent>
-          </Card>
-          <div className="grid gap-5 lg:grid-cols-2">
-            <Skeleton className="h-56 w-full" />
-            <Skeleton className="h-56 w-full" />
           </div>
         </div>
       </AppShell>
@@ -579,206 +598,105 @@ export default function RenterRecommendationsPage() {
   return (
     <AppShell
       navItems={renterNavItems}
-      title="Rental Marketplace"
+      title="Nestora"
       topNavAction={email ? <Badge>{email}</Badge> : null}
       sidebarFooter={<LogoutButton />}
-      className="pb-10"
+      className="!px-3 !py-3 !pb-8 sm:!px-4 lg:!px-6"
     >
-      <div className="mx-auto max-w-7xl space-y-6">
-        <PageHeader
-          eyebrow="Smart ranked matching"
-          title="Find your strongest rental matches"
-          description="Set your budget, location, property type, and amenities to rank approved rentals by fit."
-          actions={
-            <Badge variant="premium" className="px-3 py-1">
-              Rule-based scoring
-            </Badge>
-          }
-        />
+      <div className="mx-auto max-w-[1600px] space-y-4">
+        <div className="flex flex-col gap-3 border-b border-neutral-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">
+              Find your strongest rental matches
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-neutral-500 sm:text-base">
+              Set your preferences first. Approved listings are ranked and scored by
+              how well they fit.
+            </p>
+          </div>
+          <Badge variant="premium" className="w-fit px-3 py-1.5 text-sm">
+            <SlidersHorizontal className="mr-1 h-4 w-4" aria-hidden="true" />
+            Rule-based scoring
+          </Badge>
+        </div>
 
         {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
         {locationError ? (
           <AlertMessage variant="warning">{locationError}</AlertMessage>
         ) : null}
 
-        <section aria-label="Recommendation results" className="space-y-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <form
+          onSubmit={onRecommend}
+          aria-label="Recommendation form"
+          className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm"
+        >
+          <div className="flex flex-col gap-3 border-b border-neutral-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-neutral-950">
-                Top matches
+              <h2 className="text-2xl font-semibold tracking-tight text-neutral-950">
+                Preference builder
               </h2>
-              <p className="text-sm leading-6 text-neutral-500">
-                Ranked approved rentals based on your current preferences.
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-neutral-500">
+                Each supported field contributes to the existing match score. More
+                filled preferences give the ranking model stronger signals.
               </p>
             </div>
-            <Badge variant="success">Approved only</Badge>
+            <Badge variant="info" className="w-fit">
+              Approved rentals only
+            </Badge>
           </div>
 
-          {recommendationError ? (
-            <AlertMessage variant="danger">{recommendationError}</AlertMessage>
-          ) : null}
-
-          {isGenerating ? (
-            <div className="grid gap-4 lg:grid-cols-3">
-              <Skeleton className="h-72 w-full" />
-              <Skeleton className="h-72 w-full" />
-              <Skeleton className="h-72 w-full" />
-            </div>
-          ) : recommendations.length === 0 ? (
-            <EmptyState
-              title={
-                hasSearched
-                  ? "No approved rentals matched your preferences"
-                  : "Top rentals will appear here"
-              }
-              description={
-                hasSearched
-                  ? "Try widening the budget, removing an amenity, or using a broader location."
-                  : "Set a few preferences below to generate a ranked marketplace view."
-              }
-              icon={<Sparkles className="h-5 w-5" aria-hidden="true" />}
-              className="py-10"
-            />
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-3">
-              {recommendations.map((item, index) => {
-                const { property, reasons, missing, scorePercent } = item;
-                const amenityNames = (property.property_amenities ?? [])
-                  .map((amenity) => amenity.amenities?.name)
-                  .filter((name): name is string => Boolean(name));
-
-                return (
-                  <article
-                    key={property.id}
-                    className="overflow-hidden rounded-lg border border-neutral-200 bg-white transition-colors hover:border-neutral-300"
-                  >
-                    <div className="relative flex aspect-[4/3] items-end justify-between bg-[linear-gradient(135deg,#f7f7f5,#e7e5e4)] p-4">
-                      <div>
-                        <Badge variant="premium">#{index + 1} match</Badge>
-                        <p className="mt-3 text-2xl font-semibold tracking-tight text-neutral-950">
-                          {formatPrice(property.price)}
-                        </p>
-                      </div>
-                      <div className="rounded-md bg-white/90 px-3 py-2 text-center shadow-sm ring-1 ring-black/5">
-                        <p className="text-lg font-semibold text-neutral-950">
-                          {scorePercent}%
-                        </p>
-                        <p className="text-xs text-neutral-500">fit</p>
-                      </div>
-                    </div>
-                    <div className="space-y-4 p-4">
-                      <div>
-                        <h3 className="line-clamp-1 text-base font-semibold text-neutral-950">
-                          {property.title}
-                        </h3>
-                        <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-500">
-                          <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
-                          <span className="line-clamp-1">
-                            {formatLocation(property) || "Location unavailable"}
-                          </span>
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-3 text-sm text-neutral-600">
-                        <span className="inline-flex items-center gap-1.5">
-                          <BedDouble className="h-4 w-4" aria-hidden="true" />
-                          {property.bedrooms} bed
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <Bath className="h-4 w-4" aria-hidden="true" />
-                          {property.bathrooms} bath
-                        </span>
-                        <span>{property.area_sqm} sqm</span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <Badge>{property.property_type || "Rental"}</Badge>
-                        {amenityNames.slice(0, 2).map((amenity) => (
-                          <Badge key={amenity}>{amenity}</Badge>
-                        ))}
-                        {amenityNames.length > 2 ? (
-                          <Badge>+{amenityNames.length - 2}</Badge>
-                        ) : null}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 border-t border-neutral-100 pt-4 text-sm">
-                        <div>
-                          <p className="text-xs font-medium uppercase text-neutral-400">
-                            Deposit
-                          </p>
-                          <p className="mt-1 font-medium text-neutral-800">
-                            {property.deposit}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium uppercase text-neutral-400">
-                            Available
-                          </p>
-                          <p className="mt-1 font-medium text-neutral-800">
-                            {formatDate(property.available_from)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 border-t border-neutral-100 pt-4">
-                        <div className="flex flex-wrap gap-2">
-                          {reasons.slice(0, 2).map((reason) => (
-                            <Badge key={reason} variant="success">
-                              {reason}
-                            </Badge>
-                          ))}
-                        </div>
-                        {missing.length > 0 ? (
-                          <p className="line-clamp-1 text-xs text-neutral-500">
-                            Tradeoff: {missing[0]}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-green-700">No major gaps</p>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <form onSubmit={onRecommend} aria-label="Recommendation form">
-          <FilterPanel
-            title="Preference builder"
-            description="Each field contributes to the ranked matching model already used by this page."
-            actions={
-              <>
-                <Button type="submit" disabled={isGenerating}>
-                  {isGenerating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Search className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  {isGenerating ? "Ranking..." : "Rank rentals"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onClearResults}
-                  disabled={isGenerating}
-                >
-                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                  Clear results
-                </Button>
-              </>
-            }
+          <section
+            aria-label="Recommendation metrics"
+            className="mt-5 grid gap-3 md:grid-cols-3"
           >
+            {[
+              {
+                label: "Preferences set",
+                value: activePreferenceCount,
+                icon: <Target className="h-5 w-5" aria-hidden="true" />,
+              },
+              {
+                label: "Matches found",
+                value: recommendations.length,
+                icon: <Sparkles className="h-5 w-5" aria-hidden="true" />,
+              },
+              {
+                label: "Top score",
+                value: topScore === null ? "N/A" : `${topScore}%`,
+                icon: <Star className="h-5 w-5" aria-hidden="true" />,
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="flex min-h-16 items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3"
+              >
+                <div className="rounded-md border border-neutral-200 bg-white p-2 text-neutral-600">
+                  {stat.icon}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    {stat.label}
+                  </p>
+                  <p className="mt-0.5 text-xl font-semibold tracking-tight text-neutral-950">
+                    {stat.value}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
             <FormField label="Preferred city" htmlFor="city">
               <Input
                 id="city"
                 type="text"
                 value={preferences.city}
                 onChange={(event) => onPreferenceChange("city", event.target.value)}
-                placeholder="Any city"
+                placeholder="e.g. Cagayan de Oro"
+                className="h-12 text-base"
               />
             </FormField>
+
             <FormField label="Property type" htmlFor="propertyType">
               <Input
                 id="propertyType"
@@ -788,203 +706,333 @@ export default function RenterRecommendationsPage() {
                   onPreferenceChange("propertyType", event.target.value)
                 }
                 placeholder="Apartment, studio, house"
+                className="h-12 text-base"
               />
             </FormField>
-            <FormField label="Minimum budget" htmlFor="minBudget">
+
+            <div>
+              <p className="mb-2 text-sm font-medium text-neutral-700">
+                Budget range (PHP)
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  id="minBudget"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={preferences.minBudget}
+                  onChange={(event) =>
+                    onPreferenceChange("minBudget", event.target.value)
+                  }
+                  placeholder="Min PHP"
+                  className="h-12 text-base"
+                />
+                <Input
+                  id="maxBudget"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={preferences.maxBudget}
+                  onChange={(event) =>
+                    onPreferenceChange("maxBudget", event.target.value)
+                  }
+                  placeholder="Max PHP"
+                  className="h-12 text-base"
+                />
+              </div>
+            </div>
+
+            <FormField
+              label="Bedrooms"
+              htmlFor="bedrooms-disabled"
+              description="Bedroom weighting is not part of the current scoring model."
+            >
               <Input
-                id="minBudget"
+                id="bedrooms-disabled"
+                value="Any"
+                readOnly
+                disabled
+                className="h-12 text-base"
+              />
+            </FormField>
+          </div>
+
+          <div className="mt-5">
+            <p className="mb-3 text-sm font-medium text-neutral-700">
+              Must-have amenities
+            </p>
+            {amenities.length === 0 ? (
+              <EmptyState
+                title="No amenities available"
+                description="Amenities added to the marketplace will appear as selectable matching signals."
+                icon={<Building2 className="h-5 w-5" aria-hidden="true" />}
+                className="p-6"
+              />
+            ) : (
+              <fieldset>
+                <legend className="sr-only">Selected amenities</legend>
+                <div className="flex flex-wrap gap-2">
+                  {amenities.map((amenity) => {
+                    const selected = preferences.amenityIds.includes(amenity.id);
+
+                    return (
+                      <label
+                        key={amenity.id}
+                        className={cn(
+                          "inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors",
+                          selected
+                            ? "border-violet-200 bg-violet-50 text-violet-700"
+                            : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-300 hover:bg-white",
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={selected}
+                          onChange={() => toggleAmenity(amenity.id)}
+                        />
+                        {selected ? (
+                          <Check className="h-4 w-4" aria-hidden="true" />
+                        ) : null}
+                        {amenity.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+          </div>
+
+          <div className="mt-5 border-t border-neutral-200 pt-5">
+            <p className="mb-3 text-sm font-medium text-neutral-700">
+              Location radius optional
+            </p>
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_160px_180px]">
+              <Input
+                id="preferredLat"
+                type="number"
+                step="any"
+                value={preferences.preferredLat}
+                onChange={(event) =>
+                  onPreferenceChange("preferredLat", event.target.value)
+                }
+                placeholder="Latitude"
+                className="h-12 text-base"
+              />
+              <Input
+                id="preferredLng"
+                type="number"
+                step="any"
+                value={preferences.preferredLng}
+                onChange={(event) =>
+                  onPreferenceChange("preferredLng", event.target.value)
+                }
+                placeholder="Longitude"
+                className="h-12 text-base"
+              />
+              <Input
+                id="maxDistanceKm"
                 type="number"
                 min="0"
-                step="0.01"
-                value={preferences.minBudget}
+                step="0.1"
+                value={preferences.maxDistanceKm}
                 onChange={(event) =>
-                  onPreferenceChange("minBudget", event.target.value)
+                  onPreferenceChange("maxDistanceKm", event.target.value)
                 }
-                placeholder="0"
+                placeholder="Km"
+                className="h-12 text-base"
               />
-            </FormField>
-            <FormField label="Maximum budget" htmlFor="maxBudget">
-              <Input
-                id="maxBudget"
-                type="number"
-                min="0"
-                step="0.01"
-                value={preferences.maxBudget}
-                onChange={(event) =>
-                  onPreferenceChange("maxBudget", event.target.value)
-                }
-                placeholder="No limit"
-              />
-            </FormField>
-          </FilterPanel>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onUseLocation}
+                className="h-12"
+              >
+                <Crosshair className="h-4 w-4" aria-hidden="true" />
+                Use my location
+              </Button>
+            </div>
+          </div>
 
-          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <Card>
-              <CardHeader>
-                <CardTitle>Desired amenities</CardTitle>
-                <p className="text-sm leading-6 text-neutral-500">
-                  Select must-have features to influence the amenity portion of
-                  the match score.
-                </p>
-              </CardHeader>
-              <CardContent>
-                {amenities.length === 0 ? (
-                  <EmptyState
-                    title="No amenities available"
-                    description="Amenities added to the marketplace will appear as selectable matching signals."
-                    icon={<Building2 className="h-5 w-5" aria-hidden="true" />}
-                    className="p-6"
-                  />
-                ) : (
-                  <fieldset>
-                    <legend className="sr-only">Selected amenities</legend>
-                    <div className="flex flex-wrap gap-2">
-                      {amenities.map((amenity) => {
-                        const selected = preferences.amenityIds.includes(amenity.id);
+          {recommendationError ? (
+            <AlertMessage variant="danger" className="mt-5">
+              {recommendationError}
+            </AlertMessage>
+          ) : null}
 
-                        return (
-                          <label
-                            key={amenity.id}
-                            className={cn(
-                              "inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors",
-                              selected
-                                ? "border-neutral-950 bg-neutral-950 text-white"
-                                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50",
-                            )}
-                          >
-                            <input
-                              type="checkbox"
-                              className="sr-only"
-                              checked={selected}
-                              onChange={() => toggleAmenity(amenity.id)}
-                            />
-                            {selected ? (
-                              <Check className="h-4 w-4" aria-hidden="true" />
-                            ) : null}
-                            {amenity.name}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </fieldset>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Location radius</CardTitle>
-                <p className="text-sm leading-6 text-neutral-500">
-                  Add coordinates when distance matters more than city name.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField label="Preferred latitude" htmlFor="preferredLat">
-                  <Input
-                    id="preferredLat"
-                    type="number"
-                    step="any"
-                    value={preferences.preferredLat}
-                    onChange={(event) =>
-                      onPreferenceChange("preferredLat", event.target.value)
-                    }
-                    placeholder="Latitude"
-                  />
-                </FormField>
-                <FormField label="Preferred longitude" htmlFor="preferredLng">
-                  <Input
-                    id="preferredLng"
-                    type="number"
-                    step="any"
-                    value={preferences.preferredLng}
-                    onChange={(event) =>
-                      onPreferenceChange("preferredLng", event.target.value)
-                    }
-                    placeholder="Longitude"
-                  />
-                </FormField>
-                <FormField label="Max distance (km)" htmlFor="maxDistanceKm">
-                  <Input
-                    id="maxDistanceKm"
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={preferences.maxDistanceKm}
-                    onChange={(event) =>
-                      onPreferenceChange("maxDistanceKm", event.target.value)
-                    }
-                    placeholder="Any distance"
-                  />
-                </FormField>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onUseLocation}
-                  className="w-full"
-                >
-                  <Crosshair className="h-4 w-4" aria-hidden="true" />
-                  Use my location
-                </Button>
-              </CardContent>
-            </Card>
+          <div className="mt-5 flex flex-col gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClearResults}
+              disabled={isGenerating}
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              Clear
+            </Button>
+            <Button type="submit" disabled={isGenerating}>
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+              )}
+              {isGenerating ? "Ranking..." : "Rank rentals"}
+            </Button>
           </div>
         </form>
 
-        <section
-          aria-label="Scoring explanation"
-          className="grid gap-3 md:grid-cols-3"
-        >
-          {[
-            {
-              label: "Preferences",
-              value: activePreferenceCount,
-              icon: <Target className="h-4 w-4" aria-hidden="true" />,
-            },
-            {
-              label: "Matches",
-              value: recommendations.length,
-              icon: <Sparkles className="h-4 w-4" aria-hidden="true" />,
-            },
-            {
-              label: "Top score",
-              value: topScore === null ? "N/A" : `${topScore}%`,
-              icon: <Star className="h-4 w-4" aria-hidden="true" />,
-            },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3"
-            >
-              <div className="rounded-md border border-neutral-200 bg-neutral-50 p-2 text-neutral-600">
-                {stat.icon}
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase text-neutral-400">
-                  {stat.label}
-                </p>
-                <p className="text-lg font-semibold tracking-tight text-neutral-950">
-                  {stat.value}
-                </p>
-              </div>
+        <div className="flex flex-col gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-violet-900 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">Scoring on:</p>
+            <div className="mt-1 flex flex-wrap gap-2 text-sm font-semibold">
+              {preferenceSummary.length === 0 ? (
+                <span className="text-violet-700">No preferences selected yet</span>
+              ) : (
+                preferenceSummary.map((item, index) => (
+                  <span
+                    key={`${item}-${index}`}
+                    className="rounded-full bg-white/70 px-2.5 py-1"
+                  >
+                    {item}
+                  </span>
+                ))
+              )}
             </div>
-          ))}
-        </section>
+          </div>
+          <Badge variant="premium" className="bg-white">
+            {hasSearched ? "Latest ranking ready" : "Ready to rank"}
+          </Badge>
+        </div>
 
-        <Card>
-          <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <section aria-label="Ranked recommendation results" className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-sm font-medium text-neutral-950">
-                Preference summary
-              </p>
-              <p className="mt-1 text-sm leading-6 text-neutral-500">
-                Selected amenities: {selectedAmenityNames.join(", ") || "None"}
+              <h2 className="text-xl font-semibold tracking-tight text-neutral-950">
+                Top matches
+              </h2>
+              <p className="text-sm leading-6 text-neutral-500">
+                Ranked by fit score. Higher means more selected preferences matched.
               </p>
             </div>
-            <Badge variant="info">
-              {hasSearched ? "Latest ranking ready" : "Ready to rank"}
-            </Badge>
-          </CardContent>
-        </Card>
+            <Badge variant="success">Approved only</Badge>
+          </div>
+
+          {isGenerating ? (
+            <div className="space-y-3">
+              <Skeleton className="h-36 w-full" />
+              <Skeleton className="h-36 w-full" />
+              <Skeleton className="h-36 w-full" />
+            </div>
+          ) : recommendations.length === 0 ? (
+            <EmptyState
+              title={
+                hasSearched
+                  ? "No approved rentals matched your preferences"
+                  : "Ranked rentals will appear here"
+              }
+              description={
+                hasSearched
+                  ? "Try widening the budget, removing an amenity, or using a broader location."
+                  : "Set preferences above, review the summary, then rank approved rentals."
+              }
+              icon={<Sparkles className="h-5 w-5" aria-hidden="true" />}
+              className="py-10"
+            />
+          ) : (
+            <div className="space-y-3">
+              {recommendations.map((item) => {
+                const { property, reasons, missing, scorePercent } = item;
+                const amenityNames = (property.property_amenities ?? [])
+                  .map((amenity) => amenity.amenities?.name)
+                  .filter((name): name is string => Boolean(name));
+                const description = property.description?.trim();
+
+                return (
+                  <article
+                    key={property.id}
+                    className="grid overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-neutral-300 md:grid-cols-[180px_minmax(0,1fr)_170px]"
+                  >
+                    <div className="md:min-h-0">
+                      {(() => {
+                        const cover = property.property_images?.find((img) => img.is_cover) ?? property.property_images?.[0];
+                        return cover?.storage_path ? (
+                          <img src={cover.storage_path} alt={property.title} className="aspect-[4/3] h-full w-full object-cover md:aspect-auto" />
+                        ) : (
+                          <div className="flex min-h-36 items-center justify-center bg-[#e1f4ed] text-emerald-600 md:min-h-0">
+                            <Building2 className="h-10 w-10" aria-hidden="true" />
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    <div className="space-y-3 p-4">
+                      <div>
+                        <h3 className="line-clamp-1 text-lg font-semibold text-neutral-950">
+                          {property.title}
+                        </h3>
+                        <p className="mt-1 flex items-center gap-1.5 text-sm text-neutral-500">
+                          <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="line-clamp-1">
+                            {formatLocation(property) || "Location unavailable"}
+                          </span>
+                        </p>
+                        {description ? (
+                          <p className="mt-3 line-clamp-2 text-sm leading-6 text-neutral-600">
+                            {description}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {amenityNames.length === 0 ? (
+                          <Badge>No amenities listed</Badge>
+                        ) : (
+                          amenityNames.slice(0, 4).map((amenity) => (
+                            <Badge key={amenity}>{amenity}</Badge>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {reasons.slice(0, 4).map((reason) => (
+                          <Badge key={reason} variant="success">
+                            <Check className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                            {reason}
+                          </Badge>
+                        ))}
+                      </div>
+                      {missing.length > 0 ? (
+                        <p className="text-xs text-neutral-500">
+                          Tradeoff: {missing[0]}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-row items-center justify-between gap-4 border-t border-neutral-100 p-4 md:flex-col md:items-end md:justify-center md:border-l md:border-t-0">
+                      <div className="text-left md:text-right">
+                        <p className="text-lg font-semibold text-violet-700">
+                          {formatPrice(property.price)}
+                        </p>
+                        <p className="text-xs font-semibold uppercase text-neutral-400">
+                          Match score
+                        </p>
+                        <p className="mt-1 text-3xl font-semibold tracking-tight text-emerald-600">
+                          {scorePercent}%
+                        </p>
+                      </div>
+                      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-neutral-100">
+                        <div
+                          className="h-full rounded-full bg-emerald-500"
+                          style={{ width: `${scorePercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </AppShell>
   );
