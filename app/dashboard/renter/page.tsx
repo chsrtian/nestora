@@ -40,6 +40,10 @@ import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
 import { formatMonthlyRentInPHP, formatPriceInPHP } from "@/lib/currency";
 import { toggleFavorite } from "@/lib/favorites";
+import {
+  filterRentals,
+  validateRentalFilters,
+} from "@/lib/rentals/filters";
 
 type Amenity = {
   id: string;
@@ -57,6 +61,7 @@ type Property = {
   title: string;
   description: string | null;
   property_type: string | null;
+  address_line: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -69,6 +74,8 @@ type Property = {
   verification_status: "verified" | "needs_verification" | "incomplete" | null;
   source_note: string | null;
   available_from: string | null;
+  lat: number | null;
+  lng: number | null;
   created_at: string;
   property_amenities?: PropertyAmenity[] | null;
   property_images?: { storage_path: string; is_cover: boolean }[] | null;
@@ -109,8 +116,14 @@ type Filters = {
   propertyType: string;
   minPrice: string;
   maxPrice: string;
+  minBedrooms: string;
   amenityId: string;
+  petFriendly: boolean;
+  validCoordinates: boolean;
+  verifiedCabadbaran: boolean;
 };
+
+type BooleanFilterKey = "petFriendly" | "validCoordinates" | "verifiedCabadbaran";
 
 const DEFAULT_FILTERS: Filters = {
   search: "",
@@ -118,7 +131,11 @@ const DEFAULT_FILTERS: Filters = {
   propertyType: "",
   minPrice: "",
   maxPrice: "",
+  minBedrooms: "",
   amenityId: "",
+  petFriendly: false,
+  validCoordinates: false,
+  verifiedCabadbaran: false,
 };
 
 type SortMode = "newest" | "price_asc" | "price_desc" | "title_asc";
@@ -249,7 +266,7 @@ export default function RenterDashboardPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [renterId, setRenterId] = useState<string | null>(null);
   const [amenities, setAmenities] = useState<Amenity[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
   const [propertyInquiries, setPropertyInquiries] = useState<Record<string, Inquiry[]>>({});
   const [propertyReviews, setPropertyReviews] = useState<Record<string, Review[]>>({});
   const [inquiryMessages, setInquiryMessages] = useState<Record<string, string>>({});
@@ -262,7 +279,7 @@ export default function RenterDashboardPage() {
   const [reviewSending, setReviewSending] = useState<Record<string, boolean>>({});
   const [reviewErrors, setReviewErrors] = useState<Record<string, string>>({});
   const [reviewSuccess, setReviewSuccess] = useState<Record<string, string>>({});
-const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
@@ -271,69 +288,29 @@ const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
   const fetchProperties = async (
     client: SupabaseClient,
-    activeFilters: Filters,
   ): Promise<Property[]> => {
     setSearchLoading(true);
     setSearchError(null);
 
-    const trimmedSearch = activeFilters.search.trim();
-    const safeSearch = trimmedSearch.replace(/[%_]/g, "\\$&");
-    const trimmedCity = activeFilters.city.trim();
-    const trimmedType = activeFilters.propertyType.trim();
-    const minPrice = Number(activeFilters.minPrice);
-    const maxPrice = Number(activeFilters.maxPrice);
-
-    let query = client
+    const { data, error: queryError } = await client
       .from("properties")
       .select(
-        "id, landlord_id, title, description, property_type, city, state, country, price, deposit, advance, bedrooms, bathrooms, area_sqm, available_from, created_at, verification_status, source_note, property_images(storage_path, is_cover), property_amenities(amenity_id, amenities(name))",
+        "id, landlord_id, title, description, property_type, address_line, city, state, country, price, deposit, advance, bedrooms, bathrooms, area_sqm, available_from, lat, lng, created_at, verification_status, source_note, property_images(storage_path, is_cover), property_amenities(amenity_id, amenities(name))",
       )
       .eq("status", "approved")
       .order("created_at", { ascending: false });
 
-    if (safeSearch) {
-      query = query.or(
-        `title.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%,address_line.ilike.%${safeSearch}%,city.ilike.%${safeSearch}%`,
-      );
-    }
-
-    if (trimmedCity) {
-      query = query.ilike("city", `%${trimmedCity}%`);
-    }
-
-    if (trimmedType) {
-      query = query.ilike("property_type", `%${trimmedType}%`);
-    }
-
-    if (!Number.isNaN(minPrice) && activeFilters.minPrice !== "") {
-      query = query.gte("price", minPrice);
-    }
-
-    if (!Number.isNaN(maxPrice) && activeFilters.maxPrice !== "") {
-      query = query.lte("price", maxPrice);
-    }
-
-    const { data, error: queryError } = await query;
-
     if (queryError) {
       setSearchError(queryError.message);
-      setProperties([]);
+      setAllProperties([]);
       setSearchLoading(false);
       return [];
     }
 
     const nextProperties = normalizeProperties((data ?? []) as PropertyRow[]);
-    const filteredProperties = activeFilters.amenityId
-      ? nextProperties.filter((property) =>
-          (property.property_amenities ?? []).some(
-            (amenity) => amenity.amenity_id === activeFilters.amenityId,
-          ),
-        )
-      : nextProperties;
-
-    setProperties(filteredProperties);
+    setAllProperties(nextProperties);
     setSearchLoading(false);
-    return filteredProperties;
+    return nextProperties;
   };
 
   const loadInquiryAndReviewData = async (
@@ -444,7 +421,7 @@ const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
       }
 
       setAmenities(amenitiesData ?? []);
-      const list = await fetchProperties(client, DEFAULT_FILTERS);
+      const list = await fetchProperties(client);
       await loadInquiryAndReviewData(client, list, sessionData.session.user.id);
       setLoading(false);
     };
@@ -457,51 +434,23 @@ const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   }, [router]);
 
   const onFilterChange = (key: keyof Filters, value: string) => {
+    setSearchError(null);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const onBooleanFilterChange = (key: BooleanFilterKey, value: boolean) => {
+    setSearchError(null);
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const onSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const minValue = Number(filters.minPrice);
-    const maxValue = Number(filters.maxPrice);
-    if (
-      filters.minPrice !== "" &&
-      filters.maxPrice !== "" &&
-      !Number.isNaN(minValue) &&
-      !Number.isNaN(maxValue) &&
-      minValue > maxValue
-    ) {
-      setSearchError("Minimum price cannot be greater than maximum price.");
-      return;
-    }
-
-    const client = getSupabaseClient();
-    if (!client) {
-      setSearchError(supabaseConfigError ?? "Supabase is not configured.");
-      return;
-    }
-
-    const list = await fetchProperties(client, filters);
-    if (renterId) {
-      const clientWithAuth = getSupabaseClient();
-      if (clientWithAuth) {
-        await loadInquiryAndReviewData(clientWithAuth, list, renterId);
-      }
-    }
+    setSearchError(validateRentalFilters(filters));
   };
 
   const onClearFilters = async () => {
-    const client = getSupabaseClient();
     setFilters(DEFAULT_FILTERS);
-    if (!client) {
-      setSearchError(supabaseConfigError ?? "Supabase is not configured.");
-      return;
-    }
-
-    const list = await fetchProperties(client, DEFAULT_FILTERS);
-    if (renterId) {
-      await loadInquiryAndReviewData(client, list, renterId);
-    }
+    setSearchError(null);
   };
 
   const onInquiryMessageChange = (propertyId: string, value: string) => {
@@ -753,7 +702,22 @@ const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
     setFavoritesSending((prev) => ({ ...prev, [property.id]: false }));
   };
 
-const sortedProperties = useMemo(() => {
+  const filterValidationError = useMemo(
+    () => validateRentalFilters(filters),
+    [filters],
+  );
+
+  const properties = useMemo(
+    () =>
+      filterValidationError
+        ? []
+        : filterRentals(allProperties, filters),
+    [allProperties, filterValidationError, filters],
+  );
+
+  const activeFilterError = filterValidationError ?? searchError;
+
+  const sortedProperties = useMemo(() => {
     const list = [...properties];
 
     if (sortMode === "price_asc") {
@@ -780,7 +744,7 @@ const sortedProperties = useMemo(() => {
 
   if (loading) {
     return (
-      <AppShell navItems={renterNavItems} title="Nestora">
+      <AppShell navItems={renterNavItems} title="Nestora" showSearchHint={false}>
         <div className="mx-auto max-w-[1800px] space-y-4">
           <Skeleton className="h-14 w-full" />
           <Skeleton className="h-12 w-full" />
@@ -799,14 +763,15 @@ const sortedProperties = useMemo(() => {
     ? sortedProperties.find((item) => item.id === contactPropertyId) ?? null
     : null;
 
-  return (
-    <AppShell
-      navItems={renterNavItems}
-      title="Nestora"
-      topNavAction={email ? <Badge>{email}</Badge> : null}
-      sidebarFooter={<LogoutButton />}
-      className="px-3 py-3 pb-5 sm:px-4 lg:px-6"
-    >
+   return (
+     <AppShell
+       navItems={renterNavItems}
+       title="Nestora"
+       topNavAction={email ? <Badge>{email}</Badge> : null}
+       sidebarFooter={<LogoutButton />}
+       showSearchHint={false}
+       className="px-3 py-3 pb-5 sm:px-4 lg:px-6"
+     >
       <div className="mx-auto max-w-[1800px] space-y-4">
         {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
 
@@ -859,6 +824,30 @@ const sortedProperties = useMemo(() => {
                 <Check className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                 Approved only
               </Badge>
+
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 text-sm font-medium text-neutral-700 transition-colors hover:border-violet-200 hover:bg-violet-50">
+                <input
+                  type="checkbox"
+                  checked={filters.validCoordinates}
+                  onChange={(event) =>
+                    onBooleanFilterChange("validCoordinates", event.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-neutral-300 accent-violet-600"
+                />
+                Valid coordinates
+              </label>
+
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 text-sm font-medium text-neutral-700 transition-colors hover:border-violet-200 hover:bg-violet-50">
+                <input
+                  type="checkbox"
+                  checked={filters.verifiedCabadbaran}
+                  onChange={(event) =>
+                    onBooleanFilterChange("verifiedCabadbaran", event.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-neutral-300 accent-violet-600"
+                />
+                Verified Cabadbaran
+              </label>
 
               {/* Property type */}
               <div className="min-w-[180px] flex-1 md:flex-none md:w-[200px]">
@@ -921,6 +910,28 @@ const sortedProperties = useMemo(() => {
                 </div>
               </div>
 
+              {/* Bedrooms */}
+              <div className="min-w-[150px] flex-1 md:flex-none md:w-[170px]">
+                <label htmlFor="minBedrooms" className="text-xs font-medium uppercase text-neutral-400 mb-1 block">
+                  Bedrooms
+                </label>
+                <Select
+                  id="minBedrooms"
+                  value={filters.minBedrooms}
+                  onChange={(event) =>
+                    onFilterChange("minBedrooms", event.target.value)
+                  }
+                  className="h-10 w-full"
+                >
+                  <option value="">Any beds</option>
+                  <option value="0">Studio / 0+</option>
+                  <option value="1">1+ bed</option>
+                  <option value="2">2+ beds</option>
+                  <option value="3">3+ beds</option>
+                  <option value="4">4+ beds</option>
+                </Select>
+              </div>
+
               {/* Amenities */}
               <div className="min-w-[180px] flex-1 md:flex-none md:w-[200px]">
                 <label htmlFor="amenity" className="text-xs font-medium uppercase text-neutral-400 mb-1 block">
@@ -940,6 +951,18 @@ const sortedProperties = useMemo(() => {
                   ))}
                 </Select>
               </div>
+
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 text-sm font-medium text-neutral-700 transition-colors hover:border-violet-200 hover:bg-violet-50">
+                <input
+                  type="checkbox"
+                  checked={filters.petFriendly}
+                  onChange={(event) =>
+                    onBooleanFilterChange("petFriendly", event.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-neutral-300 accent-violet-600"
+                />
+                Pet friendly
+              </label>
 
               {/* City */}
               <div className="min-w-[180px] flex-1 md:flex-none md:w-[200px]">
@@ -1026,7 +1049,7 @@ const sortedProperties = useMemo(() => {
              </div>
            </div>
 
-          {searchError ? <AlertMessage variant="danger">{searchError}</AlertMessage> : null}
+          {activeFilterError ? <AlertMessage variant="danger">{activeFilterError}</AlertMessage> : null}
           {listError ? <AlertMessage variant="danger">{listError}</AlertMessage> : null}
 
            {searchLoading ? (

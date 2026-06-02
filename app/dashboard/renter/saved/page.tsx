@@ -146,29 +146,34 @@ export default function SavedRentalsPage() {
     setRemovingSaved((prev) => ({ ...prev, [propertyId]: false }));
   };
 
-  if (loading) {
-    return (
-      <AppShell navItems={renterNavItems} title="Saved Rentals">
-        <div className="mx-auto max-w-[1800px] space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            <Skeleton className="h-[380px] w-full" />
-            <Skeleton className="h-[380px] w-full" />
-            <Skeleton className="h-[380px] w-full" />
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
+   if (loading) {
+     return (
+       <AppShell
+         navItems={renterNavItems}
+         title="Saved Rentals"
+         showSearchHint={false}
+       >
+         <div className="mx-auto max-w-[1800px] space-y-4">
+           <Skeleton className="h-12 w-full" />
+           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+             <Skeleton className="h-[380px] w-full" />
+             <Skeleton className="h-[380px] w-full" />
+             <Skeleton className="h-[380px] w-full" />
+           </div>
+         </div>
+       </AppShell>
+     );
+   }
 
-  return (
-    <AppShell
-      navItems={renterNavItems}
-      title="Saved Rentals"
-      topNavAction={email ? <Badge>{email}</Badge> : null}
-      sidebarFooter={<LogoutButton />}
-      className="px-3 py-3 pb-5 sm:px-4 lg:px-6"
-    >
+   return (
+     <AppShell
+       navItems={renterNavItems}
+       title="Saved Rentals"
+       topNavAction={email ? <Badge>{email}</Badge> : null}
+       sidebarFooter={<LogoutButton />}
+       showSearchHint={false}
+       className="px-3 py-3 pb-5 sm:px-4 lg:px-6"
+     >
       <div className="mx-auto max-w-[1800px] space-y-4">
         {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
 

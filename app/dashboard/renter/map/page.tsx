@@ -31,11 +31,17 @@ import { AlertMessage } from "@/app/components/ui/alert-message";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { Select } from "@/app/components/ui/select";
 import { Skeleton } from "@/app/components/ui/skeleton";
 import { setAuthCookie } from "@/lib/auth/cookies";
 import { getSupabaseClient, supabaseConfigError } from "@/lib/supabase/client";
 import { ensureProfile } from "@/lib/supabase/profile";
 import { formatPriceInPHP } from "@/lib/currency";
+import {
+  filterRentals,
+  parseRentalFilterNumber,
+  validateRentalFilters,
+} from "@/lib/rentals/filters";
 import { MapLibreRentalMap } from "./maplibre-rental-map";
 import type { MapBounds } from "./maplibre-rental-map";
 
@@ -51,6 +57,7 @@ type MapProperty = {
   property_type: string | null;
   deposit: number | null;
   advance: number | null;
+  bedrooms: number | null;
   available_from: string | null;
   lat: number | null;
   lng: number | null;
@@ -104,12 +111,23 @@ type SavedSearchInsert = {
 };
 
 type ZoneSearchState = "idle" | "loading" | "complete";
+type MapFilters = {
+  minPrice: string;
+  maxPrice: string;
+  minBedrooms: string;
+  petFriendly: boolean;
+};
 
 const DEFAULT_CENTER: [number, number] = [20, 0];
-const CABADBARAN_SEED_SOURCE_PATTERN = "%Cabadbaran accommodation seed%";
 const MAP_PROPERTY_SELECT =
-  "id, title, description, address_line, city, state, country, price, property_type, deposit, advance, available_from, lat, lng, created_at, verification_status, source_url, source_note, property_images(storage_path, is_cover), property_amenities(amenity_id, amenities(name)), reviews(id, rating, comment, created_at)";
+  "id, title, description, address_line, city, state, country, price, property_type, deposit, advance, bedrooms, available_from, lat, lng, created_at, verification_status, source_url, source_note, property_images(storage_path, is_cover), property_amenities(amenity_id, amenities(name)), reviews(id, rating, comment, created_at)";
 const ZONE_SEARCH_DELAY_MS = 450;
+const DEFAULT_MAP_FILTERS: MapFilters = {
+  minPrice: "",
+  maxPrice: "",
+  minBedrooms: "",
+  petFriendly: false,
+};
 
 const renterNavItems: SidebarNavItem[] = [
   { href: "/dashboard/renter", label: "Browse rentals", icon: Home },
@@ -254,10 +272,9 @@ async function fetchVerifiedMapProperties(
     .select(MAP_PROPERTY_SELECT)
     .eq("status", "approved")
     .eq("verification_status", "verified")
-    .ilike("source_note", CABADBARAN_SEED_SOURCE_PATTERN)
+    .ilike("city", "%Cabadbaran%")
     .not("lat", "is", null)
     .not("lng", "is", null)
-    .or("source_url.not.is.null,source_note.not.is.null")
     .order("created_at", { ascending: false });
 
   return { data: normalizeMapProperties((data ?? []) as MapPropertyRow[]), error };
@@ -310,6 +327,7 @@ export default function RenterMapPage() {
   const [activeImagePath, setActiveImagePath] = useState<string | null>(null);
   const [lightboxImagePath, setLightboxImagePath] = useState<string | null>(null);
   const [lightboxZoomed, setLightboxZoomed] = useState(false);
+  const [filters, setFilters] = useState<MapFilters>(DEFAULT_MAP_FILTERS);
   const zoneLoadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -391,8 +409,37 @@ export default function RenterMapPage() {
     };
   }, [router]);
 
+  const onFilterChange = (key: keyof MapFilters, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const onPetFriendlyChange = (value: boolean) => {
+    setFilters((prev) => ({ ...prev, petFriendly: value }));
+  };
+
+  const onClearFilters = () => {
+    setFilters(DEFAULT_MAP_FILTERS);
+  };
+
+  const filterValidationError = useMemo(
+    () => validateRentalFilters(filters),
+    [filters],
+  );
+
   const mapProperties = useMemo(
-    () => properties.filter((property) => hasValidCoordinates(property)),
+    () =>
+      filterValidationError
+        ? []
+        : filterRentals(properties, {
+            ...filters,
+            validCoordinates: true,
+            verifiedCabadbaran: true,
+          }).filter((property) => hasValidCoordinates(property)),
+    [filterValidationError, filters, properties],
+  );
+
+  const hasCoordinateReadyProperties = useMemo(
+    () => properties.some((property) => hasValidCoordinates(property)),
     [properties],
   );
 
@@ -602,14 +649,26 @@ export default function RenterMapPage() {
       return;
     }
 
+    if (filterValidationError) {
+      setSaveSearchError(filterValidationError);
+      return;
+    }
+
+    const minPrice = parseRentalFilterNumber(filters.minPrice);
+    const maxPrice = parseRentalFilterNumber(filters.maxPrice);
+    const searchNotes = [
+      filters.minBedrooms ? `${filters.minBedrooms}+ bedrooms` : null,
+      filters.petFriendly ? "Pet friendly" : null,
+    ].filter((item): item is string => Boolean(item));
+
     const payload: SavedSearchInsert = {
       renter_id: renterId,
       name,
-      query: null,
+      query: searchNotes.length > 0 ? searchNotes.join("; ") : null,
       city: savedSearchCity,
       property_type: null,
-      min_price: null,
-      max_price: null,
+      min_price: minPrice,
+      max_price: maxPrice,
       map_bounds: zoneBounds ?? mapBounds,
     };
 
@@ -834,7 +893,7 @@ export default function RenterMapPage() {
 
   if (loading) {
     return (
-      <AppShell navItems={renterNavItems} title="Nestora">
+      <AppShell navItems={renterNavItems} title="Nestora" showSearchHint={false}>
         <div className="mx-auto max-w-[1800px] space-y-3">
           <div className="flex items-center justify-between gap-3">
             <Skeleton className="h-7 w-48" />
@@ -860,14 +919,15 @@ export default function RenterMapPage() {
     );
   }
 
-  return (
-    <AppShell
-      navItems={renterNavItems}
-      title="Nestora"
-      topNavAction={email ? <Badge>{email}</Badge> : null}
-      sidebarFooter={<LogoutButton />}
-      className="px-3 py-3 pb-5 sm:px-4 lg:px-5"
-    >
+   return (
+     <AppShell
+       navItems={renterNavItems}
+       title="Nestora"
+       topNavAction={email ? <Badge>{email}</Badge> : null}
+       sidebarFooter={<LogoutButton />}
+       showSearchHint={false}
+       className="px-3 py-3 pb-5 sm:px-4 lg:px-5"
+     >
       <div className="mx-auto max-w-[1800px] space-y-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -940,12 +1000,12 @@ export default function RenterMapPage() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3">
           <div className="flex shrink-0 items-center gap-2 text-sm font-medium text-neutral-700">
             <SlidersHorizontal className="h-4 w-4 text-neutral-500" aria-hidden="true" />
             Filter:
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <Badge variant="success" className="px-3 py-1">
               Approved only
             </Badge>
@@ -960,17 +1020,79 @@ export default function RenterMapPage() {
                 Drawn zone
               </Badge>
             ) : null}
-            <Badge className="px-3 py-1 text-neutral-500 opacity-70">
-              Price range
-            </Badge>
-            <Badge className="px-3 py-1 text-neutral-500 opacity-70">
-              Bedrooms
-            </Badge>
-            <Badge className="px-3 py-1 text-neutral-500 opacity-70">
+            <div className="grid min-w-[250px] flex-1 gap-2 sm:flex-none sm:grid-cols-2">
+              <div>
+                <label htmlFor="map-min-price" className="mb-1 block text-xs font-medium uppercase text-neutral-400">
+                  Min price
+                </label>
+                <Input
+                  id="map-min-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={filters.minPrice}
+                  onChange={(event) => onFilterChange("minPrice", event.target.value)}
+                  placeholder="PHP"
+                  className="h-9"
+                />
+              </div>
+              <div>
+                <label htmlFor="map-max-price" className="mb-1 block text-xs font-medium uppercase text-neutral-400">
+                  Max price
+                </label>
+                <Input
+                  id="map-max-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={filters.maxPrice}
+                  onChange={(event) => onFilterChange("maxPrice", event.target.value)}
+                  placeholder="No limit"
+                  className="h-9"
+                />
+              </div>
+            </div>
+            <div className="min-w-[150px] flex-1 sm:flex-none">
+              <label htmlFor="map-min-bedrooms" className="mb-1 block text-xs font-medium uppercase text-neutral-400">
+                Bedrooms
+              </label>
+              <Select
+                id="map-min-bedrooms"
+                value={filters.minBedrooms}
+                onChange={(event) => onFilterChange("minBedrooms", event.target.value)}
+                className="h-9"
+              >
+                <option value="">Any beds</option>
+                <option value="0">Studio / 0+</option>
+                <option value="1">1+ bed</option>
+                <option value="2">2+ beds</option>
+                <option value="3">3+ beds</option>
+                <option value="4">4+ beds</option>
+              </Select>
+            </div>
+            <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 text-sm font-medium text-neutral-700 transition-colors hover:border-violet-200 hover:bg-violet-50">
+              <input
+                type="checkbox"
+                checked={filters.petFriendly}
+                onChange={(event) => onPetFriendlyChange(event.target.checked)}
+                className="h-4 w-4 rounded border-neutral-300 accent-violet-600"
+              />
               Pet-friendly
-            </Badge>
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onClearFilters}
+            >
+              Clear
+            </Button>
           </div>
         </div>
+
+        {filterValidationError ? (
+          <AlertMessage variant="danger">{filterValidationError}</AlertMessage>
+        ) : null}
 
         <section
           aria-label="Approved rental map and list"
@@ -1030,12 +1152,14 @@ export default function RenterMapPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-neutral-950">
-                        No rentals are ready for the map yet
+                        {hasCoordinateReadyProperties
+                          ? "No rentals match these map filters"
+                          : "No rentals are ready for the map yet"}
                       </p>
                       <p className="mt-1 text-sm leading-6 text-neutral-600">
-                        This map only shows approved, source-verified Cabadbaran
-                        accommodations with valid latitude and longitude. Listings
-                        without verified coordinates stay hidden from map pins.
+                        {hasCoordinateReadyProperties
+                          ? "Clear the price, bedroom, pet-friendly, or drawn-zone filters to show verified Cabadbaran listings again."
+                          : "This map only shows approved, source-verified Cabadbaran accommodations with valid latitude and longitude. Listings without verified coordinates stay hidden from map pins."}
                       </p>
                     </div>
                   </div>
@@ -1043,10 +1167,14 @@ export default function RenterMapPage() {
                 <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
                   <div>
                     <p className="text-xl font-semibold text-neutral-400">
-                      Map loads when listings have coordinates
+                      {hasCoordinateReadyProperties
+                        ? "No filtered map results"
+                        : "Map loads when listings have coordinates"}
                     </p>
                     <p className="mt-2 text-sm text-neutral-400">
-                      Verified rentals will appear as pins here.
+                      {hasCoordinateReadyProperties
+                        ? "Adjust the filters above to bring pins back."
+                        : "Verified rentals will appear as pins here."}
                     </p>
                   </div>
                 </div>

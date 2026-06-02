@@ -133,29 +133,34 @@ export default function MyInquiriesPage() {
     }).format(date);
   };
 
-  if (loading) {
-    return (
-      <AppShell navItems={renterNavItems} title="My Inquiries">
-        <div className="mx-auto max-w-4xl space-y-4">
-          <Skeleton className="h-12 w-full" />
-          <div className="space-y-3">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
+   if (loading) {
+     return (
+       <AppShell
+         navItems={renterNavItems}
+         title="My Inquiries"
+         showSearchHint={false}
+       >
+         <div className="mx-auto max-w-4xl space-y-4">
+           <Skeleton className="h-12 w-full" />
+           <div className="space-y-3">
+             <Skeleton className="h-24 w-full" />
+             <Skeleton className="h-24 w-full" />
+             <Skeleton className="h-24 w-full" />
+           </div>
+         </div>
+       </AppShell>
+     );
+   }
 
-  return (
-    <AppShell
-      navItems={renterNavItems}
-      title="My Inquiries"
-      topNavAction={email ? <Badge>{email}</Badge> : null}
-      sidebarFooter={<LogoutButton />}
-      className="px-3 py-3 pb-5 sm:px-4 lg:px-6"
-    >
+   return (
+     <AppShell
+       navItems={renterNavItems}
+       title="My Inquiries"
+       topNavAction={email ? <Badge>{email}</Badge> : null}
+       sidebarFooter={<LogoutButton />}
+       showSearchHint={false}
+       className="px-3 py-3 pb-5 sm:px-4 lg:px-6"
+     >
       <div className="mx-auto max-w-4xl space-y-4">
         {error ? <AlertMessage variant="danger">{error}</AlertMessage> : null}
 

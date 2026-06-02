@@ -942,36 +942,41 @@ export default function RenterAssistantPage() {
     [handleSend],
   );
 
-  if (loading) {
-    return (
-      <AppShell navItems={renterNavItems} title="Nestora">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <div className="space-y-3">
-            <Skeleton className="h-8 w-72" />
-            <Skeleton className="h-5 w-[34rem] max-w-full" />
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
-          </div>
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-            <Skeleton className="h-[620px] w-full" />
-            <Skeleton className="h-[620px] w-full" />
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
+   if (loading) {
+     return (
+       <AppShell
+         navItems={renterNavItems}
+         title="Nestora"
+         showSearchHint={false}
+       >
+         <div className="mx-auto max-w-7xl space-y-6">
+           <div className="space-y-3">
+             <Skeleton className="h-8 w-72" />
+             <Skeleton className="h-5 w-[34rem] max-w-full" />
+           </div>
+           <div className="grid gap-4 md:grid-cols-3">
+             <Skeleton className="h-28 w-full" />
+             <Skeleton className="h-28 w-full" />
+             <Skeleton className="h-28 w-full" />
+           </div>
+           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+             <Skeleton className="h-[620px] w-full" />
+             <Skeleton className="h-[620px] w-full" />
+           </div>
+         </div>
+       </AppShell>
+     );
+   }
 
-  return (
-    <AppShell
-      navItems={renterNavItems}
-      title="Nestora"
-      topNavAction={email ? <Badge>{email}</Badge> : null}
-      sidebarFooter={<LogoutButton />}
-      className="overflow-x-hidden pb-6"
-    >
+   return (
+     <AppShell
+       navItems={renterNavItems}
+       title="Nestora"
+       topNavAction={email ? <Badge>{email}</Badge> : null}
+       sidebarFooter={<LogoutButton />}
+       showSearchHint={false}
+       className="overflow-x-hidden pb-6"
+     >
       <div className="mx-auto w-full max-w-7xl space-y-5 overflow-x-hidden">
         <PageHeader
           eyebrow="Intelligent discovery"

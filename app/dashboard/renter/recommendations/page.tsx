@@ -568,41 +568,46 @@ export default function RenterRecommendationsPage() {
     setRecommendationError(null);
   };
 
-  if (loading) {
-    return (
-      <AppShell navItems={renterNavItems} title="Nestora">
-        <div className="mx-auto max-w-[1600px] space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-2">
-              <Skeleton className="h-8 w-80" />
-              <Skeleton className="h-5 w-[34rem] max-w-full" />
-            </div>
-            <Skeleton className="h-10 w-44" />
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
-          </div>
-          <Skeleton className="h-[460px] w-full" />
-          <Skeleton className="h-20 w-full" />
-          <div className="space-y-3">
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
+   if (loading) {
+     return (
+       <AppShell
+         navItems={renterNavItems}
+         title="Nestora"
+         showSearchHint={false}
+       >
+         <div className="mx-auto max-w-[1600px] space-y-4">
+           <div className="flex items-start justify-between gap-4">
+             <div className="space-y-2">
+               <Skeleton className="h-8 w-80" />
+               <Skeleton className="h-5 w-[34rem] max-w-full" />
+             </div>
+             <Skeleton className="h-10 w-44" />
+           </div>
+           <div className="grid gap-3 md:grid-cols-3">
+             <Skeleton className="h-20 w-full" />
+             <Skeleton className="h-20 w-full" />
+             <Skeleton className="h-20 w-full" />
+           </div>
+           <Skeleton className="h-[460px] w-full" />
+           <Skeleton className="h-20 w-full" />
+           <div className="space-y-3">
+             <Skeleton className="h-28 w-full" />
+             <Skeleton className="h-28 w-full" />
+           </div>
+         </div>
+       </AppShell>
+     );
+   }
 
-  return (
-    <AppShell
-      navItems={renterNavItems}
-      title="Nestora"
-      topNavAction={email ? <Badge>{email}</Badge> : null}
-      sidebarFooter={<LogoutButton />}
-      className="!px-3 !py-3 !pb-8 sm:!px-4 lg:!px-6"
-    >
+   return (
+     <AppShell
+       navItems={renterNavItems}
+       title="Nestora"
+       topNavAction={email ? <Badge>{email}</Badge> : null}
+       sidebarFooter={<LogoutButton />}
+       showSearchHint={false}
+       className="!px-3 !py-3 !pb-8 sm:!px-4 lg:!px-6"
+     >
       <div className="mx-auto max-w-[1600px] space-y-4">
         <div className="flex flex-col gap-3 border-b border-neutral-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
           <div>

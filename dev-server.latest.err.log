@@ -1,0 +1,7 @@
+[browser] [Cloudflare Turnstile] Ignored message from unexpected source for event: food. (https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit:1:10974)
+[browser] [Cloudflare Turnstile] Ignored message from unexpected source for event: food. (https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit:1:10974)
+[browser] [Cloudflare Turnstile] Ignored message from unexpected source for event: food. (https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit:1:10974)
+[browser] [Cloudflare Turnstile] Ignored message from unexpected source for event: food. (https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit:1:10974)
+[browser] [Cloudflare Turnstile] Ignored message from unexpected source for event: food. (https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit:1:10974)
+[browser] Image with src "/brand/nestora-logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
